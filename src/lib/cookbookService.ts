@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 import { supabase } from './supabase';
 import { Cookbook, Recipe } from '../store/recipeStore';
 
@@ -28,17 +28,9 @@ export async function uploadAndParseCookbook(
   const fileExt = fileName.split('.').pop()?.toLowerCase() || 'pdf';
   const storagePath = `uploads/${Date.now()}_${fileName}`;
 
-  // Read file as base64 for upload
-  const base64 = await FileSystem.readAsStringAsync(fileUri, {
-    encoding: 'base64' as any,
-  });
+const file = new File(fileUri);
+const bytes = await file.bytes();
 
-  // Decode base64 to Uint8Array for upload
-  const binaryStr = atob(base64);
-  const bytes = new Uint8Array(binaryStr.length);
-  for (let i = 0; i < binaryStr.length; i++) {
-    bytes[i] = binaryStr.charCodeAt(i);
-  }
 
   const { error: uploadError } = await supabase.storage
     .from('cookbooks')
