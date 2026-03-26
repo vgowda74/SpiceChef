@@ -150,13 +150,6 @@ export default function HomeLibraryScreen() {
           <Text style={styles.greeting}>{getGreeting()}</Text>
           <Text style={styles.heading}>Your Library</Text>
         </View>
-        <TouchableOpacity
-          style={styles.avatar}
-          onPress={() => {}}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.avatarText}>VK</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Search bar */}
@@ -269,20 +262,6 @@ const styles = StyleSheet.create({
     fontSize: 38,
     color: Colors.text,
     lineHeight: 44,
-  },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: Colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
-  },
-  avatarText: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 14,
-    color: Colors.bg,
   },
   searchBar: {
     flexDirection: 'row',

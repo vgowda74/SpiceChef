@@ -18,7 +18,7 @@ import { useCookStore } from '../store/cookStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IngredientChecklist'>;
 
-type TabName = 'Ingredients' | 'Shopping list' | 'Overview';
+type TabName = 'Ingredients' | 'Overview';
 
 function formatAmount(amount: number): string {
   if (amount === 0) return '';
@@ -83,7 +83,7 @@ export default function IngredientChecklistScreen({ route, navigation }: Props) 
     navigation.navigate('CookMode', { recipeId: recipe.id, serves });
   };
 
-  const tabs: TabName[] = ['Ingredients', 'Shopping list', 'Overview'];
+  const tabs: TabName[] = ['Ingredients', 'Overview'];
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -181,15 +181,6 @@ export default function IngredientChecklistScreen({ route, navigation }: Props) 
               </View>
             ))}
           </>
-        )}
-
-        {activeTab === 'Shopping list' && (
-          <View style={styles.placeholderTab}>
-            <Ionicons name="cart-outline" size={40} color={Colors.border} />
-            <Text style={styles.placeholderText}>
-              Shopping list will auto-generate from unchecked ingredients.
-            </Text>
-          </View>
         )}
 
         {activeTab === 'Overview' && (
@@ -373,18 +364,6 @@ const styles = StyleSheet.create({
   ingStrike: {
     color: Colors.muted,
     textDecorationLine: 'line-through',
-  },
-  placeholderTab: {
-    alignItems: 'center',
-    paddingTop: Spacing.xxl,
-    gap: Spacing.md,
-  },
-  placeholderText: {
-    fontFamily: Fonts.body,
-    fontSize: 14,
-    color: Colors.muted,
-    textAlign: 'center',
-    lineHeight: 22,
   },
   overviewTab: {
     gap: Spacing.lg,

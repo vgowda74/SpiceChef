@@ -1,127 +1,130 @@
-# SpiceChef — Claude Context File
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Concept
 SpiceChef lets users upload any cookbook PDF they own and transforms it into a fully guided cooking experience — ingredient checklists, step-by-step cook mode, built-in timers, and auto-scaled serving quantities. It is a **tool, not a content platform**. Users bring their own content.
 
 ---
 
-## Design System
+## Commands
 
-### Colors
+```bash
+# Start the dev server (opens Expo Go QR code)
+npm start
+
+# Run on specific platform
+npm run android
+npm run ios
+npm run web
+```
+
+The app runs via Expo Go on device or simulator. There is no build step for development. TypeScript is checked by the editor only — there is no `tsc` script.
+
+### Supabase Edge Function
+The `parse-cookbook` function lives in `supabase/functions/parse-cookbook/index.ts` and runs on Deno. Deploy with:
+```bash
+supabase functions deploy parse-cookbook
+```
+Set `ANTHROPIC_API_KEY` as a Supabase secret (not a `.env` variable) — it is only accessed server-side in the Edge Function.
+
+---
+
+## Architecture
+
+### Navigation
+The root stack (`App.tsx`) has two logical sections:
+1. **Onboarding flow** — `Splash → OnboardingDiet → OnboardingSkill → OnboardingServes`
+2. **Main app** — `HomeLibrary` route renders `MainTabs` (bottom tab navigator), which contains Library, Recent, and Profile tabs. Stack screens pushed on top of tabs: `RecipeBrowser → IngredientChecklist → CookMode → Completion`.
+
+### State Management (Zustand)
+Three stores in `src/store/`:
+- **`useRecipeStore`** — source of truth for `Cookbook[]` and `Recipe[]`. Currently seeded with `MOCK_COOKBOOKS` / `MOCK_RECIPES` as initial state. Real data from Supabase is merged in via `addParsedCookbook()`.
+- **`useOnboardingStore`** — collects dietary restrictions, skill level, and default serves during onboarding. Not yet flushed to Supabase (auth is incomplete).
+- **`useCookStore`** — tracks the active cooking session: current step index, checked ingredients, serves override. Resets on `endSession()`.
+
+### PDF Upload & Parsing Pipeline
+`src/lib/cookbookService.ts` orchestrates the full flow:
+1. Upload PDF to Supabase Storage bucket `cookbooks` via `expo-file-system` → `File.bytes()`
+2. Invoke `parse-cookbook` Edge Function with `{ file_path, user_id }`
+3. Edge Function downloads the PDF, base64-encodes it, and sends it to Claude (`claude-sonnet-4-20250514`) as a `document` content block
+4. Claude returns structured JSON matching `ParsedCookbook` — cookbook + recipes with ingredients, steps, timers, and tags
+5. Edge Function saves to DB; client maps rows to `Cookbook` / `Recipe` types and calls `addParsedCookbook()`
+
+### Theme
+`src/lib/theme.ts` exports three typed const objects used everywhere:
+- `Colors` — bg, surface, border, accent, text, muted
+- `Fonts` — heading, headingItalic, body, bodySemiBold (font family name strings)
+- `Spacing` — xs(4), sm(8), md(16), lg(24), xl(32), xxl(48)
+
+Always import from `theme.ts` rather than using raw hex values or magic numbers.
+
+### Design System
 | Token       | Hex       | Usage                          |
 |-------------|-----------|--------------------------------|
-| `BG`        | `#0B1610` | Dark forest green — app background |
-| `ACCENT`    | `#C8A44A` | Aged gold — CTAs, highlights   |
-| `TEXT`      | `#F3ECD8` | Cream — primary text           |
-| `SURFACE`   | `#162216` | Slightly lighter bg for cards  |
-| `BORDER`    | `#2A3B2A` | Subtle borders / dividers      |
-| `MUTED`     | `#7A8C7A` | Secondary / placeholder text   |
+| `bg`        | `#0B1610` | Dark forest green — app background |
+| `accent`    | `#C8A44A` | Aged gold — CTAs, highlights   |
+| `text`      | `#F3ECD8` | Cream — primary text           |
+| `surface`   | `#162216` | Cards / elevated surfaces      |
+| `border`    | `#2A3B2A` | Subtle borders / dividers      |
+| `muted`     | `#7A8C7A` | Secondary / placeholder text   |
 
-### Typography
-- **Headings**: Cormorant Garamond (serif, loaded via `@expo-google-fonts/cormorant-garamond`)
-- **Body / UI**: Plus Jakarta Sans (sans-serif, loaded via `@expo-google-fonts/plus-jakarta-sans`)
+**Headings**: Cormorant Garamond (`Fonts.heading` / `Fonts.headingItalic`)
+**Body / UI**: Plus Jakarta Sans (`Fonts.body` / `Fonts.bodySemiBold`)
 
-### Tone
-Calm, refined, culinary-magazine. Not gamified, not fitness-app. Think *Monocle* meets *Bon Appétit*.
-
----
-
-## Tech Stack
-| Layer        | Choice                              |
-|--------------|-------------------------------------|
-| Framework    | React Native (Expo SDK 55)          |
-| Navigation   | React Navigation v7 (native stack)  |
-| Auth + DB    | Supabase                            |
-| State        | Zustand                             |
-| AI           | Claude API (PDF extraction + parsing) |
-| TTS          | ElevenLabs (Phase 2)                |
-| Images       | DALL-E 3 (Phase 2)                  |
-| Fonts        | expo-font + @expo-google-fonts      |
-
----
-
-## Folder Structure
-```
-src/
-  screens/       # One file per screen
-  components/    # Shared UI components
-  lib/           # supabase.ts, claude.ts, etc.
-  hooks/         # useRecipes, useSession, etc.
-  store/         # Zustand stores
-```
+Tone: calm, refined, culinary-magazine. Not gamified, not fitness-app.
 
 ---
 
 ## Supabase Schema
 
-### `users`
-```sql
-id          uuid primary key references auth.users
-email       text
-dietary     text[]        -- e.g. ["vegetarian", "gluten-free"]
-skill_level text          -- "beginner" | "intermediate" | "advanced"
-serves      int           -- default serving size preference
-created_at  timestamptz default now()
-```
+The actual migration (`supabase/migrations/001_initial_schema.sql`) is the authoritative schema. Key differences from the original design: `users` table not yet created; `cookbooks` has `author` and `recipe_count` columns. RLS policies are currently permissive (`USING (true)`) pending auth implementation.
 
 ### `cookbooks`
 ```sql
-id          uuid primary key default gen_random_uuid()
-user_id     uuid references users(id)
-title       text
-file_url    text          -- Supabase Storage path
-cover_url   text
-created_at  timestamptz default now()
+id uuid, user_id uuid, title text, author text, file_url text, cover_url text, recipe_count int, created_at timestamptz
 ```
 
 ### `recipes`
 ```sql
-id            uuid primary key default gen_random_uuid()
-cookbook_id   uuid references cookbooks(id)
-user_id       uuid references users(id)
-title         text
-ingredients   jsonb         -- [{ name, amount, unit }]
-steps         jsonb         -- [{ order, text, timer_seconds? }]
-base_serves   int
-tags          text[]
-created_at    timestamptz default now()
+id uuid, cookbook_id uuid, user_id uuid, title text,
+ingredients jsonb  -- [{ name, amount, unit, category }]
+steps jsonb        -- [{ order, title, text, timer_seconds?, timer_label?, needed_ingredients? }]
+base_serves int, tags text[], duration_mins int, created_at timestamptz
 ```
 
 ### `cook_sessions`
 ```sql
-id          uuid primary key default gen_random_uuid()
-user_id     uuid references users(id)
-recipe_id   uuid references recipes(id)
-started_at  timestamptz default now()
-completed   boolean default false
-step_index  int default 0
-serves      int
+id uuid, user_id uuid, recipe_id uuid, started_at timestamptz, completed boolean, step_index int, serves int
 ```
 
----
-
-## Screen Map (Phase 1)
-| # | Screen               | Route name          |
-|---|----------------------|---------------------|
-| 0 | Splash               | `Splash`            |
-| 1 | Onboarding — Diet    | `OnboardingDiet`    |
-| 2 | Onboarding — Skill   | `OnboardingSkill`   |
-| 3 | Onboarding — Serves  | `OnboardingServes`  |
-| 4 | Home Library         | `HomeLibrary`       |
-| 5 | Recipe Browser       | `RecipeBrowser`     |
-| 6 | Ingredient Checklist | `IngredientChecklist` |
-| 7 | Cook Mode            | `CookMode`          |
-| 8 | Completion           | `Completion`        |
+Storage bucket: `cookbooks` (private) — PDFs stored at `uploads/{timestamp}_{filename}`.
 
 ---
 
-## Architecture Decisions
-- **Onboarding data** is stored in Zustand (`useOnboardingStore`) and flushed to Supabase `users` table on completion.
-- **PDF parsing** happens server-side via a Supabase Edge Function that calls the Claude API. The raw PDF is uploaded to Storage first, then the Edge Function is invoked.
-- **Serving scale** is computed client-side: `scaledAmount = (baseAmount / recipe.base_serves) * user.serves`.
-- **Cook Mode** uses `react-native-reanimated` for step transitions. Timer state lives in a Zustand slice.
-- **Fonts** are loaded in `App.tsx` with `useFonts` before the navigator renders (guarded by `AppLoading` / `SplashScreen`).
-- All screens use `SafeAreaView` from `react-native-safe-area-context`.
+## Screen Map
+| Route               | Screen file                     | Notes                          |
+|---------------------|---------------------------------|--------------------------------|
+| `Splash`            | `SplashScreen.tsx`              | Fade animation                 |
+| `OnboardingDiet`    | `OnboardingDietScreen.tsx`      | Uses `OnboardingLayout`        |
+| `OnboardingSkill`   | `OnboardingSkillScreen.tsx`     | Uses `OnboardingLayout`        |
+| `OnboardingServes`  | `OnboardingServesScreen.tsx`    | Uses `OnboardingLayout`        |
+| `HomeLibrary`       | → `MainTabs` (bottom tabs)      | Fade animation                 |
+| `RecipeBrowser`     | `RecipeBrowserScreen.tsx`       | Param: `cookbookId: string`    |
+| `IngredientChecklist` | `IngredientChecklistScreen.tsx` | Param: `recipeId: string`    |
+| `CookMode`          | `CookModeScreen.tsx`            | Params: `recipeId`, `serves`   |
+| `Completion`        | `CompletionScreen.tsx`          | Param: `recipeId: string`      |
+
+Bottom tabs inside `MainTabs`: `HomeLibrary` (Library), `Recent`, `Profile`.
+
+---
+
+## Key Architecture Decisions
+- **Serving scale** computed client-side: `scaledAmount = (baseAmount / recipe.base_serves) * serves`
+- **Fonts** loaded in `App.tsx` with `useFonts` — renders a blank `Colors.bg` view until ready (no splash screen delay needed)
+- **Auth not yet implemented** — `user_id` is passed as `null` throughout; onboarding data is not persisted to Supabase yet
+- All screens use `SafeAreaView` from `react-native-safe-area-context`
+- The `OnboardingLayout` component provides consistent padding and back-navigation for all onboarding screens
 
 ---
 
@@ -129,10 +132,12 @@ serves      int
 ```
 EXPO_PUBLIC_SUPABASE_URL=
 EXPO_PUBLIC_SUPABASE_ANON_KEY=
-EXPO_PUBLIC_CLAUDE_API_KEY=      # used in Edge Function, not client
 ```
+`ANTHROPIC_API_KEY` is a Supabase secret, not a client env var.
 
 ---
 
 ## Current Phase
-**Phase 1** — Onboarding flow complete. Next: Home Library + PDF upload.
+**Phase 1 complete** — full onboarding flow, home library with mock data, PDF upload + Claude parsing pipeline, recipe browser, ingredient checklist, cook mode with per-step timers, and completion screen.
+
+**Next:** Wire up real auth (Supabase Auth), flush onboarding data to `users` table, replace mock cookbook seed data with Supabase-fetched data.

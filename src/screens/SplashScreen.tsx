@@ -32,7 +32,7 @@ export default function SplashScreen({ navigation }: Props) {
     ]).start();
 
     const timer = setTimeout(() => {
-      navigation.replace('OnboardingDiet');
+      navigation.replace('HomeLibrary');
     }, 2800);
 
     return () => clearTimeout(timer);
@@ -42,7 +42,7 @@ export default function SplashScreen({ navigation }: Props) {
     <TouchableOpacity
       style={styles.container}
       activeOpacity={1}
-      onPress={() => navigation.replace('OnboardingDiet')}
+      onPress={() => navigation.replace('HomeLibrary')}
     >
       <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
 
