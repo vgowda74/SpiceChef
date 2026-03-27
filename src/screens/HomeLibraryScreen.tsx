@@ -7,7 +7,6 @@ import {
   FlatList,
   SafeAreaView,
   StatusBar,
-  Modal,
   ActivityIndicator,
   TextInput,
   Alert,
@@ -19,7 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../../App';
 import { Colors, Fonts, Spacing } from '../lib/theme';
 import { useRecipeStore, Cookbook } from '../store/recipeStore';
-import { uploadAndParseCookbook, UploadProgress } from '../lib/cookbookService';
+import { uploadAndParseCookbook, LIMITS } from '../lib/cookbookService';
+import { MY_RECIPES_COOKBOOK_ID } from '../lib/recipeGeneratorService';
 
 // Navigation prop can come from either the stack or the tab navigator
 type Props = {
@@ -48,97 +48,127 @@ function getCookbookEmoji(title: string): string {
 function CookbookRow({
   cookbook,
   onPress,
+  onLongPress,
 }: {
   cookbook: Cookbook;
   onPress: () => void;
+  onLongPress: () => void;
 }) {
   return (
-    <TouchableOpacity style={styles.cookbookRow} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity
+      style={[styles.cookbookRow, cookbook.loading && styles.cookbookRowLoading]}
+      onPress={cookbook.loading ? undefined : onPress}
+      onLongPress={cookbook.loading ? undefined : onLongPress}
+      activeOpacity={cookbook.loading ? 1 : 0.8}
+    >
       <View style={[styles.cookbookIcon, { backgroundColor: cookbook.accent_color }]}>
-        <Text style={styles.cookbookEmoji}>{getCookbookEmoji(cookbook.title)}</Text>
+        {cookbook.loading
+          ? <ActivityIndicator size="small" color={Colors.accent} />
+          : <Text style={styles.cookbookEmoji}>{getCookbookEmoji(cookbook.title)}</Text>
+        }
       </View>
       <View style={styles.cookbookInfo}>
         <Text style={styles.cookbookTitle} numberOfLines={1}>{cookbook.title}</Text>
         <Text style={styles.cookbookMeta}>
-          {cookbook.author} · {cookbook.recipe_count} recipes found
+          {cookbook.loading ? 'Reading your cookbook…' : `${cookbook.author} · ${cookbook.recipe_count} recipes found`}
         </Text>
       </View>
-      <View style={styles.countBadge}>
-        <Text style={styles.countBadgeText}>{cookbook.recipe_count}</Text>
-      </View>
+      {cookbook.loading
+        ? <ActivityIndicator size="small" color={Colors.muted} style={{ marginRight: 4 }} />
+        : (
+          <View style={styles.countBadge}>
+            <Text style={styles.countBadgeText}>{cookbook.recipe_count}</Text>
+          </View>
+        )
+      }
     </TouchableOpacity>
   );
 }
 
 export default function HomeLibraryScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { cookbooks, addCookbook, addParsedCookbook } = useRecipeStore();
-  const [processing, setProcessing] = useState(false);
-  const [processingName, setProcessingName] = useState('');
-  const [processingStage, setProcessingStage] = useState('');
+  const { cookbooks, addCookbook, addPendingCookbook, resolvePendingCookbook, rejectPendingCookbook, lifetimeUploads, incrementLifetimeUploads } = useRecipeStore();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredCookbooks = searchQuery
+  const filteredCookbooks = (searchQuery
     ? cookbooks.filter(
         (cb) =>
           cb.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
           cb.author.toLowerCase().includes(searchQuery.toLowerCase())
       )
-    : cookbooks;
+    : cookbooks
+  ).sort((a, b) => {
+    // "My Recipes" always first
+    if (a.id === MY_RECIPES_COOKBOOK_ID) return -1;
+    if (b.id === MY_RECIPES_COOKBOOK_ID) return 1;
+    return 0;
+  });
 
   const isSupabaseConfigured =
     !!process.env.EXPO_PUBLIC_SUPABASE_URL &&
     !!process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
   const handleUpload = async () => {
+    // Check upload limit
+    if (lifetimeUploads >= LIMITS.MAX_UPLOADS) {
+      Alert.alert(
+        'Upload limit reached',
+        `This app only allows ${LIMITS.MAX_UPLOADS} cookbook uploads.`,
+      );
+      return;
+    }
+
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: 'application/pdf',
-        copyToCacheDirectory: true, // need local copy for reading
+        copyToCacheDirectory: true,
       });
 
       if (result.canceled) return;
 
       const file = result.assets[0];
+
+      // Check file size
+      if (file.size && file.size > LIMITS.MAX_PDF_SIZE_BYTES) {
+        const maxMB = Math.round(LIMITS.MAX_PDF_SIZE_BYTES / (1024 * 1024));
+        const fileMB = (file.size / (1024 * 1024)).toFixed(1);
+        Alert.alert(
+          'File too large',
+          `This PDF is ${fileMB} MB. The maximum size is ${maxMB} MB — try a shorter cookbook.`,
+        );
+        return;
+      }
+
       const title = file.name.replace(/\.pdf$/i, '').replace(/_/g, ' ');
-      setProcessingName(title);
-      setProcessing(true);
+
+      // Count this upload (even if it fails later — prevents abuse)
+      incrementLifetimeUploads();
+
+      // Add placeholder immediately so it appears in the list
+      const pendingId = addPendingCookbook(title);
 
       if (isSupabaseConfigured) {
-        // Real flow: Upload to Supabase → Claude parses → recipes saved
-        try {
-          const onProgress = (progress: UploadProgress) => {
-            setProcessingStage(progress.message);
-          };
-
-          const { cookbook, recipes } = await uploadAndParseCookbook(
-            file.uri,
-            file.name,
-            onProgress,
-          );
-
-          addParsedCookbook(cookbook, recipes);
-          setProcessing(false);
-          navigation.navigate('RecipeBrowser', { cookbookId: cookbook.id });
-        } catch (err: any) {
-          setProcessing(false);
+        // Parse in the background — don't block the UI
+        uploadAndParseCookbook(file.uri, file.name).then(({ cookbook, recipes }) => {
+          resolvePendingCookbook(pendingId, cookbook, recipes);
+        }).catch((err: any) => {
+          rejectPendingCookbook(pendingId);
           Alert.alert(
             'Upload failed',
             err.message || 'Something went wrong parsing the cookbook.',
             [{ text: 'OK' }],
           );
-        }
+        });
       } else {
-        // Fallback: mock flow when Supabase is not configured
-        setProcessingStage('Simulating parse (Supabase not configured)...');
+        // Fallback mock when Supabase is not configured
         setTimeout(() => {
           const cookbook = addCookbook(title);
-          setProcessing(false);
+          rejectPendingCookbook(pendingId); // remove placeholder
           navigation.navigate('RecipeBrowser', { cookbookId: cookbook.id });
         }, 2000);
       }
     } catch {
-      setProcessing(false);
+      // picker was dismissed or failed — nothing to clean up
     }
   };
 
@@ -164,16 +194,32 @@ export default function HomeLibraryScreen() {
         />
       </View>
 
-      {/* Upload button */}
-      <TouchableOpacity style={styles.uploadBtn} onPress={handleUpload} activeOpacity={0.75}>
-        <View style={styles.uploadIcon}>
-          <Ionicons name="arrow-up" size={22} color={Colors.accent} />
-        </View>
-        <View style={styles.uploadText}>
-          <Text style={styles.uploadLabel}>Upload a cookbook</Text>
-          <Text style={styles.uploadSub}>PDF · Any cuisine · Any language</Text>
-        </View>
-      </TouchableOpacity>
+      {/* Action buttons row */}
+      <View style={styles.actionRow}>
+        <TouchableOpacity style={[styles.actionBtn, styles.actionBtnUpload]} onPress={handleUpload} activeOpacity={0.75}>
+          <View style={styles.actionIcon}>
+            <Ionicons name="arrow-up" size={20} color={Colors.accent} />
+          </View>
+          <View style={styles.actionText}>
+            <Text style={styles.actionLabel}>Upload cookbook</Text>
+            <Text style={styles.actionSub}>PDF · Any cuisine</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.actionBtnCreate]}
+          onPress={() => navigation.navigate('AddRecipe')}
+          activeOpacity={0.75}
+        >
+          <View style={[styles.actionIcon, styles.actionIconCreate]}>
+            <Ionicons name="sparkles" size={20} color={Colors.bg} />
+          </View>
+          <View style={styles.actionText}>
+            <Text style={styles.actionLabel}>Add recipe</Text>
+            <Text style={styles.actionSub}>Describe · AI generates</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
 
       {/* Section label */}
       {filteredCookbooks.length > 0 && (
@@ -210,25 +256,11 @@ export default function HomeLibraryScreen() {
           <CookbookRow
             cookbook={item}
             onPress={() => navigation.navigate('RecipeBrowser', { cookbookId: item.id })}
+            onLongPress={() => {}}
           />
         )}
       />
 
-      {/* Processing modal */}
-      <Modal visible={processing} transparent animationType="fade">
-        <View style={styles.modalBg}>
-          <View style={styles.modalCard}>
-            <ActivityIndicator size="large" color={Colors.accent} />
-            <Text style={styles.modalTitle}>Parsing recipes…</Text>
-            <Text style={styles.modalSub} numberOfLines={2}>
-              {processingName}
-            </Text>
-            <Text style={styles.modalHint}>
-              {processingStage || 'Claude is reading your cookbook'}
-            </Text>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -282,39 +314,52 @@ const styles = StyleSheet.create({
     color: Colors.text,
     padding: 0,
   },
-  uploadBtn: {
+  actionRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 14,
-    backgroundColor: '#2A3B1E',
-    borderWidth: 1,
-    borderColor: '#3D5228',
-    padding: Spacing.md,
-    gap: Spacing.md,
+    gap: Spacing.sm,
     marginBottom: Spacing.xl,
   },
-  uploadIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'column',
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  actionBtnUpload: {
+    backgroundColor: '#2A3B1E',
+    borderColor: '#3D5228',
+  },
+  actionBtnCreate: {
+    backgroundColor: '#2A2A1A',
+    borderColor: '#4A4A28',
+  },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: Colors.surface,
     borderWidth: 1.5,
     borderColor: Colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  uploadText: {
-    flex: 1,
+  actionIconCreate: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
   },
-  uploadLabel: {
+  actionText: {
+    gap: 2,
+  },
+  actionLabel: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 16,
+    fontSize: 14,
     color: Colors.text,
-    marginBottom: 2,
   },
-  uploadSub: {
+  actionSub: {
     fontFamily: Fonts.body,
-    fontSize: 13,
+    fontSize: 12,
     color: Colors.muted,
   },
   sectionLabel: {
@@ -334,6 +379,9 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     padding: Spacing.md,
     gap: Spacing.md,
+  },
+  cookbookRowLoading: {
+    opacity: 0.6,
   },
   cookbookIcon: {
     width: 48,
@@ -389,37 +437,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: Spacing.xl,
-  },
-  modalBg: {
-    flex: 1,
-    backgroundColor: 'rgba(11,22,16,0.88)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    padding: Spacing.xl,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    width: 280,
-    gap: Spacing.md,
-  },
-  modalTitle: {
-    fontFamily: Fonts.heading,
-    fontSize: 24,
-    color: Colors.text,
-  },
-  modalSub: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 14,
-    color: Colors.accent,
-    textAlign: 'center',
-  },
-  modalHint: {
-    fontFamily: Fonts.body,
-    fontSize: 13,
-    color: Colors.muted,
   },
 });

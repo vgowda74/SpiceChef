@@ -4,6 +4,16 @@ import { Cookbook, Recipe } from '../store/recipeStore';
 
 const ACCENT_PALETTE = ['#6B3A2A', '#2C4A3E', '#3D3228', '#1B3A4B', '#4A3728'];
 
+/** Upload / usage limits to keep API costs under control */
+export const LIMITS = {
+  /** Maximum PDF file size in bytes (15 MB) */
+  MAX_PDF_SIZE_BYTES: 15 * 1024 * 1024,
+  /** Maximum PDF uploads for free users */
+  MAX_UPLOADS: 3,
+  /** Maximum number of AI-generated recipes in "My Recipes" */
+  MAX_GENERATED_RECIPES: 20,
+} as const;
+
 export interface UploadProgress {
   stage: 'uploading' | 'parsing' | 'saving' | 'done' | 'error';
   message: string;
@@ -31,6 +41,8 @@ export async function uploadAndParseCookbook(
 const file = new File(fileUri);
 const bytes = await file.bytes();
 
+
+  if (!supabase) throw new Error('Supabase is not configured.');
 
   const { error: uploadError } = await supabase.storage
     .from('cookbooks')

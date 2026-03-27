@@ -27,7 +27,8 @@ import IngredientChecklistScreen from './src/screens/IngredientChecklistScreen';
 import CookModeScreen from './src/screens/CookModeScreen';
 import CompletionScreen from './src/screens/CompletionScreen';
 import RecentScreen from './src/screens/RecentScreen';
-import ProfileScreen from './src/screens/ProfileScreen';
+import AboutScreen from './src/screens/AboutScreen';
+import AddRecipeScreen from './src/screens/AddRecipeScreen';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -40,6 +41,7 @@ export type RootStackParamList = {
   IngredientChecklist: { recipeId: string };
   CookMode: { recipeId: string; serves: number };
   Completion: { recipeId: string };
+  AddRecipe: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -91,13 +93,13 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
+        name="About"
+        component={AboutScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <TabIcon name="person-outline" color={color} size={size} />
+            <TabIcon name="information-circle-outline" color={color} size={size} />
           ),
-          tabBarLabel: 'profile',
+          tabBarLabel: 'about',
         }}
       />
     </Tab.Navigator>
@@ -105,14 +107,14 @@ function MainTabs() {
 }
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     CormorantGaramond_600SemiBold,
     CormorantGaramond_600SemiBold_Italic,
     PlusJakartaSans_400Regular,
     PlusJakartaSans_600SemiBold,
   });
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded && !fontError) {
     return <View style={{ flex: 1, backgroundColor: Colors.bg }} />;
   }
 
@@ -146,6 +148,11 @@ export default function App() {
           name="Completion"
           component={CompletionScreen}
           options={{ animation: 'fade' }}
+        />
+        <Stack.Screen
+          name="AddRecipe"
+          component={AddRecipeScreen}
+          options={{ animation: 'slide_from_bottom' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

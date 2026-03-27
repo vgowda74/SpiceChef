@@ -2,7 +2,7 @@ export const Colors = {
   bg: '#0B1610',
   surface: '#162216',
   border: '#2A3B2A',
-  accent: '#C8A44A',
+  accent: '#C47A5A',
   text: '#F3ECD8',
   muted: '#7A8C7A',
 } as const;

@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   Animated,
   StatusBar,
@@ -47,18 +48,12 @@ export default function SplashScreen({ navigation }: Props) {
       <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
 
       <Animated.View style={[styles.content, { opacity, transform: [{ translateY }] }]}>
-        {/* Mark */}
-        <View style={styles.markRow}>
-          <View style={styles.markDot} />
-          <View style={styles.markLine} />
-          <View style={styles.markDot} />
-        </View>
-
-        {/* Logo */}
-        <Text style={styles.logo}>SpiceChef</Text>
-
-        {/* Divider */}
-        <View style={styles.divider} />
+        {/* App icon */}
+        <Image
+          source={require('../../assets/icon.png')}
+          style={styles.icon}
+          resizeMode="contain"
+        />
 
         {/* Tagline */}
         <Text style={styles.tagline}>Your cookbooks, guided.</Text>
@@ -82,34 +77,10 @@ const styles = StyleSheet.create({
   content: {
     alignItems: 'center',
   },
-  markRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 24,
-  },
-  markDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: Colors.accent,
-  },
-  markLine: {
-    width: 40,
-    height: 1,
-    backgroundColor: Colors.accent,
-  },
-  logo: {
-    fontFamily: Fonts.heading,
-    fontSize: 56,
-    color: Colors.text,
-    letterSpacing: 1,
-  },
-  divider: {
-    width: 36,
-    height: 1.5,
-    backgroundColor: Colors.accent,
-    marginVertical: 20,
+  icon: {
+    width: 180,
+    height: 180,
+    marginBottom: 16,
   },
   tagline: {
     fontFamily: Fonts.headingItalic,

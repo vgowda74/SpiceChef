@@ -21,7 +21,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Completion'>;
 export default function CompletionScreen({ route, navigation }: Props) {
   const { recipeId } = route.params;
   const { getRecipe } = useRecipeStore();
-  const { endSession } = useCookStore();
+  const { endSession, logCompletion } = useCookStore();
 
   const recipe = getRecipe(recipeId);
 
@@ -30,6 +30,7 @@ export default function CompletionScreen({ route, navigation }: Props) {
   const slideUp = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
+    if (recipe) logCompletion(recipeId, recipe.cookbook_id);
     endSession();
 
     Animated.sequence([

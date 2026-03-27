@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../../App';
 import { Colors, Fonts, Spacing } from '../lib/theme';
 import { useRecipeStore, Recipe } from '../store/recipeStore';
+import { MY_RECIPES_COOKBOOK_ID } from '../lib/recipeGeneratorService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RecipeBrowser'>;
 
@@ -198,9 +199,10 @@ function RecipeRow({ recipe, onPress }: { recipe: Recipe; onPress: () => void })
 export default function RecipeBrowserScreen({ route, navigation }: Props) {
   const { cookbookId } = route.params;
   const { getCookbook, getRecipesByCookbook } = useRecipeStore();
+  const isMyRecipes = cookbookId === MY_RECIPES_COOKBOOK_ID;
 
   const [activeFilter, setActiveFilter] = useState('All');
-  const [showModal, setShowModal] = useState(true);
+  const [showModal, setShowModal] = useState(!isMyRecipes);
   const [modalStep, setModalStep] = useState<1 | 2>(1);
 
   const [selectedDietary, setSelectedDietary] = useState<Set<string>>(new Set());
@@ -242,8 +244,11 @@ export default function RecipeBrowserScreen({ route, navigation }: Props) {
     base = applyDietaryFilter(base, selectedDietary);
     base = applyPantryFilter(base, selectedPantry);
 
+    // Newest first for "My Recipes" (IDs are `my_<timestamp>`)
+    if (isMyRecipes) base = [...base].reverse();
+
     return base;
-  }, [allRecipes, activeFilter, selectedDietary, selectedPantry]);
+  }, [allRecipes, activeFilter, selectedDietary, selectedPantry, isMyRecipes]);
 
   const renderHeader = () => (
     <View style={styles.header}>
