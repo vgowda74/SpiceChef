@@ -4,15 +4,18 @@ import { Cookbook, Recipe } from '../store/recipeStore';
 
 const ACCENT_PALETTE = ['#6B3A2A', '#2C4A3E', '#3D3228', '#1B3A4B', '#4A3728'];
 
-/** Upload / usage limits to keep API costs under control */
-export const LIMITS = {
-  /** Maximum PDF file size in bytes (15 MB) */
-  MAX_PDF_SIZE_BYTES: 15 * 1024 * 1024,
-  /** Maximum PDF uploads for free users */
-  MAX_UPLOADS: 3,
-  /** Maximum number of AI-generated recipes in "My Recipes" */
-  MAX_GENERATED_RECIPES: 20,
-} as const;
+/** Upload / usage limits — relaxed in dev, enforced in production */
+export function getLimits(isPro: boolean) {
+  return {
+    MAX_PDF_SIZE_BYTES: 15 * 1024 * 1024,
+    MAX_UPLOADS:              __DEV__ ? 999 : isPro ? 25 : 3,
+    MAX_GENERATED_RECIPES:    __DEV__ ? 999 : isPro ? 100 : 5,
+    MAX_RECIPES_PER_COOKBOOK:  __DEV__ ? 999 : isPro ? 50 : 20,
+  };
+}
+
+/** Default free-tier limits (backward compat) */
+export const LIMITS = getLimits(false);
 
 export interface UploadProgress {
   stage: 'uploading' | 'parsing' | 'saving' | 'done' | 'error';
@@ -105,6 +108,9 @@ const bytes = await file.bytes();
     tags: r.tags || [],
     duration_mins: r.duration_mins || 0,
   }));
+
+  // 4. Delete the PDF from storage — recipes are saved locally, PDF no longer needed
+  supabase.storage.from('cookbooks').remove([storagePath]).catch(() => {});
 
   notify('done', `Found ${recipes.length} recipes!`);
 

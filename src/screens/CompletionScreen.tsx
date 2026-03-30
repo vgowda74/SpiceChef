@@ -15,6 +15,7 @@ import { RootStackParamList } from '../../App';
 import { Colors, Fonts, Spacing } from '../lib/theme';
 import { useRecipeStore } from '../store/recipeStore';
 import { useCookStore } from '../store/cookStore';
+import { maybeRequestReview } from '../lib/reviewService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Completion'>;
 
@@ -32,6 +33,7 @@ export default function CompletionScreen({ route, navigation }: Props) {
   useEffect(() => {
     if (recipe) logCompletion(recipeId, recipe.cookbook_id);
     endSession();
+    maybeRequestReview();
 
     Animated.sequence([
       Animated.delay(150),

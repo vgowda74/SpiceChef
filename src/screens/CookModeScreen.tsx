@@ -18,6 +18,39 @@ import { useCookStore } from '../store/cookStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CookMode'>;
 
+/** Parse **bold** markers in step text into styled Text elements */
+function RichStepText({ text, style, boldStyle }: { text: string; style: any; boldStyle: any }) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return (
+    <Text style={style}>
+      {parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return (
+            <Text key={i} style={boldStyle}>
+              {part.slice(2, -2)}
+            </Text>
+          );
+        }
+        return part;
+      })}
+    </Text>
+  );
+}
+
+/** Format scaled amount as a clean string with fractions */
+function formatScaledAmount(amount: number): string {
+  if (amount === 0) return '';
+  if (!isFinite(amount)) return '—';
+  const quarter = Math.round(amount * 4);
+  const whole = Math.floor(quarter / 4);
+  const rem = quarter % 4;
+  const fracMap: Record<number, string> = { 1: '¼', 2: '½', 3: '¾' };
+  const frac = fracMap[rem] ?? '';
+  if (whole === 0 && frac) return frac;
+  if (!frac) return whole.toString();
+  return `${whole}${frac}`;
+}
+
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
   const s = (seconds % 60).toString().padStart(2, '0');
@@ -144,30 +177,56 @@ export default function CookModeScreen({ route, navigation }: Props) {
         {/* Instruction card */}
         <View style={styles.instructionCard}>
           <Text style={styles.stepNumberLabel}>STEP {stepIndex + 1}</Text>
-          <Text style={styles.instructionText}>{currentStep.text}</Text>
+          <RichStepText
+            text={currentStep.text}
+            style={styles.instructionText}
+            boldStyle={styles.instructionBold}
+          />
         </View>
 
         {/* Timer */}
         {hasTimer && (
           <View style={styles.timerCard}>
             <View style={styles.timerRow}>
+              <TouchableOpacity
+                style={styles.timerAdjustBtn}
+                onPress={() => setTimeLeft((t) => Math.max(0, t - 30))}
+                activeOpacity={0.7}
+                disabled={timerDone}
+              >
+                <Ionicons name="remove" size={20} color={timerDone ? Colors.border : Colors.text} />
+              </TouchableOpacity>
+
               <Text style={[styles.timerDisplay, timerDone && styles.timerDisplayDone]}>
                 {timerDone ? '00 : 00' : formatTime(timeLeft)}
               </Text>
+
               <TouchableOpacity
-                style={[styles.timerBtn, timerDone && styles.timerBtnDone]}
-                onPress={toggleTimer}
-                activeOpacity={0.8}
+                style={styles.timerAdjustBtn}
+                onPress={() => setTimeLeft((t) => t + 30)}
+                activeOpacity={0.7}
+                disabled={timerDone}
               >
-                {timerDone ? (
-                  <Ionicons name="refresh" size={22} color={Colors.bg} />
-                ) : timerRunning ? (
-                  <Ionicons name="pause" size={22} color={Colors.bg} />
-                ) : (
-                  <Ionicons name="play" size={22} color={Colors.bg} />
-                )}
+                <Ionicons name="add" size={20} color={timerDone ? Colors.border : Colors.text} />
               </TouchableOpacity>
             </View>
+
+            <Text style={styles.timerAdjustHint}>30 sec</Text>
+
+            <TouchableOpacity
+              style={[styles.timerBtn, timerDone && styles.timerBtnDone]}
+              onPress={toggleTimer}
+              activeOpacity={0.8}
+            >
+              {timerDone ? (
+                <Ionicons name="refresh" size={22} color={Colors.bg} />
+              ) : timerRunning ? (
+                <Ionicons name="pause" size={22} color={Colors.bg} />
+              ) : (
+                <Ionicons name="play" size={22} color={Colors.bg} />
+              )}
+            </TouchableOpacity>
+
             {currentStep.timer_label && (
               <Text style={styles.timerLabel}>{currentStep.timer_label}</Text>
             )}
@@ -178,12 +237,31 @@ export default function CookModeScreen({ route, navigation }: Props) {
         {currentStep.needed_ingredients && currentStep.needed_ingredients.length > 0 && (
           <View style={styles.neededSection}>
             <Text style={styles.neededLabel}>NEEDED THIS STEP</Text>
-            <View style={styles.neededChips}>
-              {currentStep.needed_ingredients.map((item, idx) => (
-                <View key={idx} style={styles.neededChip}>
-                  <Text style={styles.neededChipText}>{item}</Text>
-                </View>
-              ))}
+            <View style={styles.neededList}>
+              {currentStep.needed_ingredients.map((item, idx) => {
+                // Support both string format ("2 tbsp oil") and object format ({ name, amount, unit })
+                if (typeof item === 'object' && item !== null) {
+                  const scaled = recipe.base_serves
+                    ? (item.amount / recipe.base_serves) * serves
+                    : item.amount;
+                  return (
+                    <View key={idx} style={styles.neededRow}>
+                      <View style={styles.neededDot} />
+                      <Text style={styles.neededName}>{item.name}</Text>
+                      <Text style={styles.neededAmount}>
+                        {formatScaledAmount(scaled)} {item.unit}
+                      </Text>
+                    </View>
+                  );
+                }
+                // Fallback for legacy string format
+                return (
+                  <View key={idx} style={styles.neededRow}>
+                    <View style={styles.neededDot} />
+                    <Text style={styles.neededName}>{item}</Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}
@@ -283,6 +361,10 @@ const styles = StyleSheet.create({
     color: Colors.text,
     lineHeight: 28,
   },
+  instructionBold: {
+    fontFamily: Fonts.bodySemiBold,
+    color: Colors.accent,
+  },
   timerCard: {
     backgroundColor: Colors.surface,
     borderRadius: 16,
@@ -290,17 +372,36 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   timerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: Spacing.md,
+  },
+  timerAdjustBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timerAdjustHint: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
+    color: Colors.muted,
   },
   timerDisplay: {
     fontFamily: Fonts.heading,
     fontSize: 48,
     color: Colors.text,
     letterSpacing: 2,
+    minWidth: 180,
+    textAlign: 'center',
   },
   timerDisplayDone: {
     color: Colors.accent,
@@ -332,23 +433,35 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     marginBottom: Spacing.sm,
   },
-  neededChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  neededChip: {
+  neededList: {
     backgroundColor: Colors.surface,
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    padding: Spacing.md,
+    gap: 12,
   },
-  neededChipText: {
+  neededRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  neededDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.accent,
+  },
+  neededName: {
     fontFamily: Fonts.body,
-    fontSize: 13,
+    fontSize: 14,
     color: Colors.text,
+    flex: 1,
+  },
+  neededAmount: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 14,
+    color: Colors.accent,
   },
   navRow: {
     flexDirection: 'row',

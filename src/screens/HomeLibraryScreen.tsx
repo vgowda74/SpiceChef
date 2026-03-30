@@ -18,7 +18,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../../App';
 import { Colors, Fonts, Spacing } from '../lib/theme';
 import { useRecipeStore, Cookbook } from '../store/recipeStore';
-import { uploadAndParseCookbook, LIMITS } from '../lib/cookbookService';
+import { uploadAndParseCookbook, getLimits } from '../lib/cookbookService';
+import { maybeRequestReview } from '../lib/reviewService';
+import { usePurchaseStore } from '../store/purchaseStore';
 import { MY_RECIPES_COOKBOOK_ID } from '../lib/recipeGeneratorService';
 
 // Navigation prop can come from either the stack or the tab navigator
@@ -49,10 +51,12 @@ function CookbookRow({
   cookbook,
   onPress,
   onLongPress,
+  isNew,
 }: {
   cookbook: Cookbook;
   onPress: () => void;
   onLongPress: () => void;
+  isNew?: boolean;
 }) {
   return (
     <TouchableOpacity
@@ -68,7 +72,14 @@ function CookbookRow({
         }
       </View>
       <View style={styles.cookbookInfo}>
-        <Text style={styles.cookbookTitle} numberOfLines={1}>{cookbook.title}</Text>
+        <View style={styles.cookbookTitleRow}>
+          <Text style={styles.cookbookTitle} numberOfLines={1}>{cookbook.title}</Text>
+          {isNew && (
+            <View style={styles.newBadge}>
+              <Text style={styles.newBadgeText}>NEW</Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.cookbookMeta}>
           {cookbook.loading ? 'Reading your cookbook…' : `${cookbook.author} · ${cookbook.recipe_count} recipes found`}
         </Text>
@@ -88,7 +99,11 @@ function CookbookRow({
 export default function HomeLibraryScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { cookbooks, addCookbook, addPendingCookbook, resolvePendingCookbook, rejectPendingCookbook, lifetimeUploads, incrementLifetimeUploads } = useRecipeStore();
+  const { isPro } = usePurchaseStore();
+  const limits = getLimits(isPro);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const { isFeaturedCookbook, isUploadedCookbook, removeCookbook } = useRecipeStore();
 
   const filteredCookbooks = (searchQuery
     ? cookbooks.filter(
@@ -101,6 +116,12 @@ export default function HomeLibraryScreen() {
     // "My Recipes" always first
     if (a.id === MY_RECIPES_COOKBOOK_ID) return -1;
     if (b.id === MY_RECIPES_COOKBOOK_ID) return 1;
+    // Featured cookbooks next (newest first)
+    const aFeatured = isFeaturedCookbook(a.id);
+    const bFeatured = isFeaturedCookbook(b.id);
+    if (aFeatured && !bFeatured) return -1;
+    if (!aFeatured && bFeatured) return 1;
+    if (aFeatured && bFeatured) return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     return 0;
   });
 
@@ -110,11 +131,8 @@ export default function HomeLibraryScreen() {
 
   const handleUpload = async () => {
     // Check upload limit
-    if (lifetimeUploads >= LIMITS.MAX_UPLOADS) {
-      Alert.alert(
-        'Upload limit reached',
-        `This app only allows ${LIMITS.MAX_UPLOADS} cookbook uploads.`,
-      );
+    if (lifetimeUploads >= limits.MAX_UPLOADS) {
+      navigation.navigate('Upgrade');
       return;
     }
 
@@ -129,8 +147,8 @@ export default function HomeLibraryScreen() {
       const file = result.assets[0];
 
       // Check file size
-      if (file.size && file.size > LIMITS.MAX_PDF_SIZE_BYTES) {
-        const maxMB = Math.round(LIMITS.MAX_PDF_SIZE_BYTES / (1024 * 1024));
+      if (file.size && file.size > limits.MAX_PDF_SIZE_BYTES) {
+        const maxMB = Math.round(limits.MAX_PDF_SIZE_BYTES / (1024 * 1024));
         const fileMB = (file.size / (1024 * 1024)).toFixed(1);
         Alert.alert(
           'File too large',
@@ -151,6 +169,7 @@ export default function HomeLibraryScreen() {
         // Parse in the background — don't block the UI
         uploadAndParseCookbook(file.uri, file.name).then(({ cookbook, recipes }) => {
           resolvePendingCookbook(pendingId, cookbook, recipes);
+          maybeRequestReview();
         }).catch((err: any) => {
           rejectPendingCookbook(pendingId);
           Alert.alert(
@@ -256,7 +275,20 @@ export default function HomeLibraryScreen() {
           <CookbookRow
             cookbook={item}
             onPress={() => navigation.navigate('RecipeBrowser', { cookbookId: item.id })}
-            onLongPress={() => {}}
+            onLongPress={() => {
+              // Only allow deleting user-uploaded cookbooks and My Recipes
+              if (isUploadedCookbook(item.id) || item.id === MY_RECIPES_COOKBOOK_ID) {
+                Alert.alert(
+                  'Delete Cookbook',
+                  `Delete "${item.title}" and all its recipes?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: () => removeCookbook(item.id) },
+                  ],
+                );
+              }
+            }}
+            isNew={isFeaturedCookbook(item.id)}
           />
         )}
       />
@@ -397,10 +429,28 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 3,
   },
+  cookbookTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   cookbookTitle: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 16,
     color: Colors.text,
+    flexShrink: 1,
+  },
+  newBadge: {
+    backgroundColor: Colors.accent,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  newBadgeText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 9,
+    color: Colors.bg,
+    letterSpacing: 0.8,
   },
   cookbookMeta: {
     fontFamily: Fonts.body,

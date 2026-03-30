@@ -9,6 +9,7 @@ import {
   StatusBar,
   ScrollView,
   Modal,
+  Alert,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -182,10 +183,10 @@ function applyPantryFilter(recipes: Recipe[], pantry: Set<string>): Recipe[] {
 }
 
 // --- Recipe row ---
-function RecipeRow({ recipe, onPress }: { recipe: Recipe; onPress: () => void }) {
+function RecipeRow({ recipe, onPress, onLongPress }: { recipe: Recipe; onPress: () => void; onLongPress?: () => void }) {
   const isVeg = recipe.tags.includes('Vegetarian');
   return (
-    <TouchableOpacity style={styles.recipeRow} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.recipeRow} onPress={onPress} onLongPress={onLongPress} activeOpacity={0.8}>
       <View style={[styles.recipeDot, { backgroundColor: isVeg ? '#4A8C3A' : '#C87840' }]} />
       <View style={styles.recipeInfo}>
         <Text style={styles.recipeTitle}>{recipe.title}</Text>
@@ -198,8 +199,9 @@ function RecipeRow({ recipe, onPress }: { recipe: Recipe; onPress: () => void })
 
 export default function RecipeBrowserScreen({ route, navigation }: Props) {
   const { cookbookId } = route.params;
-  const { getCookbook, getRecipesByCookbook } = useRecipeStore();
+  const { getCookbook, getRecipesByCookbook, removeRecipe, isUploadedCookbook } = useRecipeStore();
   const isMyRecipes = cookbookId === MY_RECIPES_COOKBOOK_ID;
+  const canDeleteRecipes = isMyRecipes || isUploadedCookbook(cookbookId);
 
   const [activeFilter, setActiveFilter] = useState('All');
   const [showModal, setShowModal] = useState(!isMyRecipes);
@@ -321,7 +323,20 @@ export default function RecipeBrowserScreen({ route, navigation }: Props) {
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         renderItem={({ item }) => (
-          <RecipeRow recipe={item} onPress={() => navigation.navigate('IngredientChecklist', { recipeId: item.id })} />
+          <RecipeRow
+            recipe={item}
+            onPress={() => navigation.navigate('IngredientChecklist', { recipeId: item.id })}
+            onLongPress={canDeleteRecipes ? () => {
+              Alert.alert(
+                'Delete Recipe',
+                `Delete "${item.title}"?`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Delete', style: 'destructive', onPress: () => removeRecipe(item.id) },
+                ],
+              );
+            } : undefined}
+          />
         )}
       />
 

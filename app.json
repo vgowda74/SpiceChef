@@ -31,7 +31,9 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [],
+    "plugins": [
+      "expo-iap"
+    ],
     "extra": {
       "eas": {
         "projectId": "989a24a5-9e92-4f30-bc56-54f8e32c54ef"

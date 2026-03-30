@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -29,6 +29,10 @@ import CompletionScreen from './src/screens/CompletionScreen';
 import RecentScreen from './src/screens/RecentScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import AddRecipeScreen from './src/screens/AddRecipeScreen';
+import UpgradeScreen from './src/screens/UpgradeScreen';
+import { setupIAP, teardownIAP } from './src/lib/iapService';
+import { fetchFeaturedCookbooks } from './src/lib/featuredService';
+import { useRecipeStore } from './src/store/recipeStore';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -42,6 +46,7 @@ export type RootStackParamList = {
   CookMode: { recipeId: string; serves: number };
   Completion: { recipeId: string };
   AddRecipe: undefined;
+  Upgrade: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -73,7 +78,7 @@ function MainTabs() {
       }}
     >
       <Tab.Screen
-        name="HomeLibrary"
+        name="Library"
         component={HomeLibraryScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
@@ -107,6 +112,17 @@ function MainTabs() {
 }
 
 export default function App() {
+  useEffect(() => {
+    setupIAP();
+    // Load featured cookbooks from backend
+    fetchFeaturedCookbooks().then(({ cookbooks, recipes }) => {
+      if (cookbooks.length > 0) {
+        useRecipeStore.getState().mergeFeaturedCookbooks(cookbooks, recipes);
+      }
+    });
+    return () => { teardownIAP(); };
+  }, []);
+
   const [fontsLoaded, fontError] = useFonts({
     CormorantGaramond_600SemiBold,
     CormorantGaramond_600SemiBold_Italic,
@@ -152,6 +168,11 @@ export default function App() {
         <Stack.Screen
           name="AddRecipe"
           component={AddRecipeScreen}
+          options={{ animation: 'slide_from_bottom' }}
+        />
+        <Stack.Screen
+          name="Upgrade"
+          component={UpgradeScreen}
           options={{ animation: 'slide_from_bottom' }}
         />
       </Stack.Navigator>

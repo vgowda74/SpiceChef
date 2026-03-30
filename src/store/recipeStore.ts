@@ -9,13 +9,19 @@ export interface Ingredient {
   category?: string; // e.g. "PRODUCE", "DAIRY", "SPICES"
 }
 
+export interface StepIngredient {
+  name: string;
+  amount: number;
+  unit: string;
+}
+
 export interface RecipeStep {
   order: number;
   title?: string; // e.g. "Sauté the aromatics"
   text: string;
   timer_seconds?: number;
   timer_label?: string; // e.g. "Onion softening timer"
-  needed_ingredients?: string[]; // items needed this step
+  needed_ingredients?: (StepIngredient | string)[]; // structured or legacy string format
 }
 
 export interface Recipe {
@@ -382,6 +388,9 @@ const MOCK_RECIPES: Recipe[] = [
 /** IDs of cookbooks bundled with the app (not user-uploaded) */
 const BUNDLED_COOKBOOK_IDS = new Set(MOCK_COOKBOOKS.map((cb) => cb.id));
 
+/** IDs of featured cookbooks loaded from backend — populated at runtime */
+const featuredCookbookIds = new Set<string>();
+
 interface RecipeState {
   cookbooks: Cookbook[];
   recipes: Recipe[];
@@ -399,7 +408,11 @@ interface RecipeState {
   addGeneratedRecipe: (recipe: Recipe) => void;
   updateCookbookRecipeCount: (id: string, count: number) => void;
   removeCookbook: (id: string) => void;
+  removeRecipe: (recipeId: string) => void;
   incrementLifetimeUploads: () => void;
+  mergeFeaturedCookbooks: (cookbooks: Cookbook[], recipes: Recipe[]) => void;
+  isFeaturedCookbook: (id: string) => boolean;
+  mergeMyRecipes: (cookbook: Cookbook, recipes: Recipe[]) => void;
 }
 
 export const useRecipeStore = create<RecipeState>()(persist((set, get) => ({
@@ -414,10 +427,12 @@ export const useRecipeStore = create<RecipeState>()(persist((set, get) => ({
 
   getRecipe: (id) => get().recipes.find((r) => r.id === id),
 
-  isUploadedCookbook: (id) => !BUNDLED_COOKBOOK_IDS.has(id) && id !== 'cb_my_recipes',
+  isUploadedCookbook: (id) => !BUNDLED_COOKBOOK_IDS.has(id) && !featuredCookbookIds.has(id) && id !== 'cb_my_recipes',
+
+  isFeaturedCookbook: (id) => featuredCookbookIds.has(id),
 
   getActiveUploadCount: () =>
-    get().cookbooks.filter((cb) => !BUNDLED_COOKBOOK_IDS.has(cb.id) && cb.id !== 'cb_my_recipes').length,
+    get().cookbooks.filter((cb) => !BUNDLED_COOKBOOK_IDS.has(cb.id) && !featuredCookbookIds.has(cb.id) && cb.id !== 'cb_my_recipes').length,
 
   incrementLifetimeUploads: () =>
     set((state) => ({ lifetimeUploads: state.lifetimeUploads + 1 })),
@@ -520,6 +535,61 @@ export const useRecipeStore = create<RecipeState>()(persist((set, get) => ({
       cookbooks: state.cookbooks.filter((cb) => cb.id !== id),
       recipes: state.recipes.filter((r) => r.cookbook_id !== id),
     }));
+  },
+
+  /** Remove a single recipe and update its cookbook's count */
+  removeRecipe: (recipeId) => {
+    set((state) => {
+      const recipe = state.recipes.find((r) => r.id === recipeId);
+      const updatedRecipes = state.recipes.filter((r) => r.id !== recipeId);
+      const updatedCookbooks = recipe
+        ? state.cookbooks.map((cb) =>
+            cb.id === recipe.cookbook_id
+              ? { ...cb, recipe_count: Math.max(0, cb.recipe_count - 1) }
+              : cb
+          )
+        : state.cookbooks;
+      return { recipes: updatedRecipes, cookbooks: updatedCookbooks };
+    });
+  },
+
+  /** Merge featured cookbooks from backend — no limits, no duplicates */
+  mergeFeaturedCookbooks: (newCookbooks, newRecipes) => {
+    // Track featured IDs
+    newCookbooks.forEach((cb) => featuredCookbookIds.add(cb.id));
+
+    set((state) => {
+      const existingCbIds = new Set(state.cookbooks.map((cb) => cb.id));
+      const existingRecipeIds = new Set(state.recipes.map((r) => r.id));
+
+      const addedCookbooks = newCookbooks.filter((cb) => !existingCbIds.has(cb.id));
+      const addedRecipes = newRecipes.filter((r) => !existingRecipeIds.has(r.id));
+
+      return {
+        cookbooks: [...state.cookbooks, ...addedCookbooks],
+        recipes: [...state.recipes, ...addedRecipes],
+      };
+    });
+  },
+
+  /** Merge "My Recipes" fetched from Supabase — restores recipes that were lost locally */
+  mergeMyRecipes: (cookbook, newRecipes) => {
+    set((state) => {
+      const existingRecipeIds = new Set(state.recipes.map((r) => r.id));
+      const addedRecipes = newRecipes.filter((r) => !existingRecipeIds.has(r.id));
+
+      const hasCookbook = state.cookbooks.some((cb) => cb.id === cookbook.id);
+      const updatedCookbooks = hasCookbook
+        ? state.cookbooks.map((cb) =>
+            cb.id === cookbook.id ? { ...cb, recipe_count: cookbook.recipe_count } : cb
+          )
+        : [...state.cookbooks, cookbook];
+
+      return {
+        cookbooks: updatedCookbooks,
+        recipes: [...state.recipes, ...addedRecipes],
+      };
+    });
   },
 }), {
   name: 'spicechef-recipes',

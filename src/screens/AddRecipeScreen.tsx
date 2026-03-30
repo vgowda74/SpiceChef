@@ -20,7 +20,8 @@ import { RootStackParamList } from '../../App';
 import { Colors, Fonts, Spacing } from '../lib/theme';
 import { useRecipeStore } from '../store/recipeStore';
 import { generateRecipe, MY_RECIPES_COOKBOOK_ID } from '../lib/recipeGeneratorService';
-import { LIMITS } from '../lib/cookbookService';
+import { getLimits } from '../lib/cookbookService';
+import { usePurchaseStore } from '../store/purchaseStore';
 
 const SAMPLE_PROMPT =
   'A creamy vegetarian curry with paneer and spinach — no nuts, gluten-free. Serves 2, under 30 minutes. I have coconut milk, onions, and garam masala.';
@@ -37,6 +38,8 @@ const PROMPT_CHIPS = [
 export default function AddRecipeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { addGeneratedRecipe, recipes } = useRecipeStore();
+  const { isPro } = usePurchaseStore();
+  const limits = getLimits(isPro);
 
   const [description, setDescription] = useState('');
   const [generating, setGenerating] = useState(false);
@@ -56,11 +59,8 @@ export default function AddRecipeScreen() {
   const handleGenerate = async () => {
     // Check generated recipe limit
     const generatedCount = recipes.filter((r) => r.cookbook_id === MY_RECIPES_COOKBOOK_ID).length;
-    if (generatedCount >= LIMITS.MAX_GENERATED_RECIPES) {
-      Alert.alert(
-        'Recipe limit reached',
-        `You can generate up to ${LIMITS.MAX_GENERATED_RECIPES} recipes. Remove some from My Recipes to create more.`,
-      );
+    if (generatedCount >= limits.MAX_GENERATED_RECIPES) {
+      navigation.navigate('Upgrade');
       return;
     }
 

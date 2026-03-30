@@ -1,0 +1,55 @@
+{
+  "cookbook": {
+    "title": "Quick Weeknight Dinners",
+    "author": "SpiceChef Team"
+  },
+  "recipes": [
+    {
+      "title": "Garlic Butter Pasta",
+      "base_serves": 2,
+      "duration_mins": 15,
+      "tags": ["Vegetarian", "Italian", "Quick"],
+      "ingredients": [
+        { "name": "Spaghetti", "amount": 200, "unit": "g", "category": "PANTRY" },
+        { "name": "Butter", "amount": 3, "unit": "tbsp", "category": "DAIRY" },
+        { "name": "Garlic cloves", "amount": 4, "unit": "cloves", "category": "PRODUCE" },
+        { "name": "Parmesan", "amount": 50, "unit": "g", "category": "DAIRY" },
+        { "name": "Red chili flakes", "amount": 0.5, "unit": "tsp", "category": "SPICES" },
+        { "name": "Fresh parsley", "amount": 2, "unit": "tbsp", "category": "PRODUCE" }
+      ],
+      "steps": [
+        {
+          "order": 1,
+          "title": "Cook the pasta",
+          "text": "Bring a large pot of salted water to a boil. Cook **200g spaghetti** until al dente, about **8 minutes**. Reserve **1 cup pasta water** before draining.",
+          "timer_seconds": 480,
+          "timer_label": "Pasta cooking",
+          "needed_ingredients": [
+            { "name": "Spaghetti", "amount": 200, "unit": "g" }
+          ]
+        },
+        {
+          "order": 2,
+          "title": "Make the garlic butter",
+          "text": "Melt **3 tbsp butter** in a large skillet over medium heat. Add **4 minced garlic cloves** and **0.5 tsp chili flakes**. Cook for **1 minute** until fragrant — don't let the garlic brown.",
+          "timer_seconds": 60,
+          "timer_label": "Garlic cooking",
+          "needed_ingredients": [
+            { "name": "Butter", "amount": 3, "unit": "tbsp" },
+            { "name": "Garlic cloves", "amount": 4, "unit": "cloves" },
+            { "name": "Red chili flakes", "amount": 0.5, "unit": "tsp" }
+          ]
+        },
+        {
+          "order": 3,
+          "title": "Toss and serve",
+          "text": "Add drained pasta to the skillet. Toss with **50g grated Parmesan** and a splash of reserved pasta water until creamy. Top with **fresh parsley**.",
+          "needed_ingredients": [
+            { "name": "Parmesan", "amount": 50, "unit": "g" },
+            { "name": "Fresh parsley", "amount": 2, "unit": "tbsp" }
+          ]
+        }
+      ]
+    }
+  ]
+}

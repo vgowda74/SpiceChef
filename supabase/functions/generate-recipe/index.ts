@@ -16,15 +16,28 @@ const SYSTEM_PROMPT = `You are a professional chef and recipe writer. When given
     { "name": "Ingredient name", "amount": 2, "unit": "tbsp", "category": "PRODUCE" }
   ],
   "steps": [
-    { "order": 1, "title": "Step title", "text": "Step instructions with **bold** for key ingredients and quantities.", "timer_seconds": 300, "timer_label": "Timer name" }
+    {
+      "order": 1,
+      "title": "Short step title",
+      "text": "Clear instructions. Use **bold** for key ingredients and quantities like **2 tbsp olive oil**.",
+      "timer_seconds": 300,
+      "timer_label": "Timer name",
+      "needed_ingredients": [
+        { "name": "Olive oil", "amount": 2, "unit": "tbsp" },
+        { "name": "Onion", "amount": 1, "unit": "whole" }
+      ]
+    }
   ]
 }
 
 Rules:
 - category must be one of: PRODUCE, DAIRY, PROTEIN, SPICES, PANTRY
-- Only include timer_seconds and timer_label when a step has a meaningful timed action
-- Use **bold** in step text to highlight key ingredients and quantities
+- Only include timer_seconds and timer_label when a step has a meaningful timed action (baking, simmering, resting, marinating, etc.)
+- Use **bold** in step text to highlight key ingredients, quantities, temperatures, and timing
 - tags should include dietary info (Vegetarian, Vegan, Non-Veg) and cuisine/style
+- needed_ingredients MUST be an array of objects with name, amount, and unit — these are the exact ingredients used in that step with their exact amounts for the base serving size. Every ingredient from the main ingredients list must appear in at least one step's needed_ingredients. The amounts in needed_ingredients must add up correctly to the total in the ingredients list.
+- Ingredient amounts must be numeric (use decimals like 0.5, not fractions like "1/2")
+- Each ingredient name in needed_ingredients must exactly match a name in the top-level ingredients array
 - Aim for 5-8 ingredients and 4-6 steps
 - Return ONLY the JSON object, nothing else`;
 

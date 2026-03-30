@@ -34,7 +34,16 @@ export async function generateRecipe(description: string): Promise<Recipe> {
       text: step.text,
       timer_seconds: step.timer_seconds,
       timer_label: step.timer_label,
-      needed_ingredients: step.needed_ingredients,
+      needed_ingredients: (step.needed_ingredients || []).map((ni: any) => {
+        if (typeof ni === 'object' && ni !== null && ni.name) {
+          return {
+            name: ni.name,
+            amount: Number(ni.amount) || 0,
+            unit: ni.unit || '',
+          };
+        }
+        return ni;
+      }),
     })),
   };
 

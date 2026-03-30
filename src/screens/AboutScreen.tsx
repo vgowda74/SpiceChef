@@ -7,9 +7,14 @@ import {
   SafeAreaView,
   StatusBar,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { RootStackParamList } from '../../App';
 import { Colors, Fonts, Spacing } from '../lib/theme';
+import { usePurchaseStore } from '../store/purchaseStore';
 
 const FEATURES = [
   {
@@ -30,6 +35,9 @@ const FEATURES = [
 ];
 
 export default function AboutScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { isPro } = usePurchaseStore();
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
@@ -67,6 +75,23 @@ export default function AboutScreen() {
             </View>
           ))}
         </View>
+
+        {/* Upgrade / Pro status */}
+        {isPro ? (
+          <View style={styles.proStatus}>
+            <Ionicons name="diamond" size={16} color={Colors.accent} />
+            <Text style={styles.proStatusText}>SpiceChef Pro</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.upgradeBtn}
+            onPress={() => navigation.navigate('Upgrade')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="diamond-outline" size={16} color={Colors.bg} />
+            <Text style={styles.upgradeBtnText}>Upgrade to Pro</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Footer note */}
         <Text style={styles.footer}>
@@ -148,6 +173,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.muted,
     lineHeight: 20,
+  },
+  upgradeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.accent,
+    borderRadius: 14,
+    paddingVertical: 14,
+    gap: Spacing.sm,
+    marginBottom: Spacing.xl,
+  },
+  upgradeBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 15,
+    color: Colors.bg,
+  },
+  proStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: Spacing.xl,
+  },
+  proStatusText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 15,
+    color: Colors.accent,
   },
   footer: {
     fontFamily: Fonts.body,
