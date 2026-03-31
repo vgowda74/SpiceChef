@@ -276,17 +276,14 @@ export default function HomeLibraryScreen() {
             cookbook={item}
             onPress={() => navigation.navigate('RecipeBrowser', { cookbookId: item.id })}
             onLongPress={() => {
-              // Only allow deleting user-uploaded cookbooks and My Recipes
-              if (isUploadedCookbook(item.id) || item.id === MY_RECIPES_COOKBOOK_ID) {
-                Alert.alert(
-                  'Delete Cookbook',
-                  `Delete "${item.title}" and all its recipes?`,
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Delete', style: 'destructive', onPress: () => removeCookbook(item.id) },
-                  ],
-                );
-              }
+              Alert.alert(
+                'Delete Cookbook',
+                `Delete "${item.title}" and all its recipes?`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Delete', style: 'destructive', onPress: () => removeCookbook(item.id) },
+                ],
+              );
             }}
             isNew={isFeaturedCookbook(item.id)}
           />

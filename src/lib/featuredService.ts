@@ -23,7 +23,15 @@ export async function fetchFeaturedCookbooks(): Promise<{
 
     if (cbError || !cbRows?.length) return { cookbooks: [], recipes: [] };
 
-    const cookbookIds = cbRows.map((cb: any) => cb.id);
+    // Deduplicate by title — keep only the first of each
+    const seenTitles = new Set<string>();
+    const uniqueCbRows = cbRows.filter((cb: any) => {
+      if (seenTitles.has(cb.title)) return false;
+      seenTitles.add(cb.title);
+      return true;
+    });
+
+    const cookbookIds = uniqueCbRows.map((cb: any) => cb.id);
 
     // Fetch all recipes for featured cookbooks
     const { data: recipeRows, error: rError } = await supabase
@@ -34,7 +42,7 @@ export async function fetchFeaturedCookbooks(): Promise<{
     if (rError) return { cookbooks: [], recipes: [] };
 
     // Map to app types
-    const cookbooks: Cookbook[] = cbRows.map((cb: any, idx: number) => ({
+    const cookbooks: Cookbook[] = uniqueCbRows.map((cb: any, idx: number) => ({
       id: cb.id,
       title: cb.title,
       author: cb.author || '',

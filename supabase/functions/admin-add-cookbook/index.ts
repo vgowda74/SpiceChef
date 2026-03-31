@@ -40,6 +40,21 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // Check for duplicate title
+    const { data: existing } = await supabase
+      .from('cookbooks')
+      .select('id')
+      .eq('title', cookbook.title)
+      .eq('is_featured', true)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      return new Response(
+        JSON.stringify({ error: `Cookbook "${cookbook.title}" already exists (id: ${existing[0].id}). Skipping.` }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     // Insert the cookbook
     const { data: insertedCookbook, error: cbError } = await supabase
       .from('cookbooks')

@@ -553,21 +553,41 @@ export const useRecipeStore = create<RecipeState>()(persist((set, get) => ({
     });
   },
 
-  /** Merge featured cookbooks from backend — no limits, no duplicates */
+  /** Sync featured cookbooks from backend — removes stale, adds fresh */
   mergeFeaturedCookbooks: (newCookbooks, newRecipes) => {
-    // Track featured IDs
+    // Update the featured ID set
+    featuredCookbookIds.clear();
     newCookbooks.forEach((cb) => featuredCookbookIds.add(cb.id));
 
+    const newCbIds = new Set(newCookbooks.map((cb) => cb.id));
+    const newRecipeIds = new Set(newRecipes.map((r) => r.id));
+
     set((state) => {
-      const existingCbIds = new Set(state.cookbooks.map((cb) => cb.id));
-      const existingRecipeIds = new Set(state.recipes.map((r) => r.id));
+      // Remove old featured cookbooks and their recipes that are no longer in the backend
+      const oldFeaturedCbIds = new Set(
+        state.cookbooks
+          .filter((cb) => !BUNDLED_COOKBOOK_IDS.has(cb.id) && cb.id !== 'cb_my_recipes' && !newCbIds.has(cb.id))
+          .filter((cb) => {
+            // Identify old featured books: they came from backend previously
+            // They have UUID-style IDs (not cb_ prefix) and aren't user uploads
+            return cb.id.includes('-') && cb.author === 'SpiceChef';
+          })
+          .map((cb) => cb.id)
+      );
+
+      const cleanedCookbooks = state.cookbooks.filter((cb) => !oldFeaturedCbIds.has(cb.id));
+      const cleanedRecipes = state.recipes.filter((r) => !oldFeaturedCbIds.has(r.cookbook_id));
+
+      // Add new featured cookbooks and recipes that aren't already present
+      const existingCbIds = new Set(cleanedCookbooks.map((cb) => cb.id));
+      const existingRecipeIds = new Set(cleanedRecipes.map((r) => r.id));
 
       const addedCookbooks = newCookbooks.filter((cb) => !existingCbIds.has(cb.id));
       const addedRecipes = newRecipes.filter((r) => !existingRecipeIds.has(r.id));
 
       return {
-        cookbooks: [...state.cookbooks, ...addedCookbooks],
-        recipes: [...state.recipes, ...addedRecipes],
+        cookbooks: [...cleanedCookbooks, ...addedCookbooks],
+        recipes: [...cleanedRecipes, ...addedRecipes],
       };
     });
   },
