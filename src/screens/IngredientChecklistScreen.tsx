@@ -7,6 +7,7 @@ import {
   ScrollView,
   SafeAreaView,
   StatusBar,
+  Linking,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -113,13 +114,37 @@ export default function IngredientChecklistScreen({ route, navigation }: Props) 
             <Ionicons name="time-outline" size={14} color={Colors.muted} />
             <Text style={styles.metaText}>{recipe.duration_mins} min</Text>
           </View>
-          <Text style={styles.metaText}>Serves {serves}</Text>
           {recipe.tags.length > 0 && (
             <View style={styles.tagDot}>
               <View style={styles.tagDotInner} />
               <Text style={styles.tagText}>{recipe.tags[0]}</Text>
             </View>
           )}
+        </View>
+
+        {/* Serving selector */}
+        <View style={styles.servingRow}>
+          <Text style={styles.servingLabel}>SERVINGS</Text>
+          <View style={styles.servingControls}>
+            <TouchableOpacity
+              style={styles.servingBtn}
+              onPress={() => setServes(Math.max(1, serves - 1))}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="remove" size={18} color={Colors.text} />
+            </TouchableOpacity>
+            <Text style={styles.servingValue}>{serves}</Text>
+            <TouchableOpacity
+              style={styles.servingBtn}
+              onPress={() => setServes(serves + 1)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="add" size={18} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.servingHint}>
+            {serves === recipe.base_serves ? 'Original recipe' : `Scaled from ${recipe.base_serves} · Adjust spices to taste`}
+          </Text>
         </View>
 
         {/* Tabs */}
@@ -209,10 +234,23 @@ export default function IngredientChecklistScreen({ route, navigation }: Props) 
 
       {/* Bottom CTA */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.cta} onPress={handleStart} activeOpacity={0.85}>
-          <Ionicons name="checkmark" size={18} color={Colors.bg} />
-          <Text style={styles.ctaText}>Start Cooking</Text>
-        </TouchableOpacity>
+        <View style={styles.footerRow}>
+          <TouchableOpacity
+            style={styles.youtubeBtn}
+            onPress={() => {
+              const query = encodeURIComponent(`how to make ${recipe.title}`);
+              Linking.openURL(`https://www.youtube.com/results?search_query=${query}`);
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="logo-youtube" size={22} color="#FF0000" />
+            <Text style={styles.youtubeBtnText}>Watch</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.cta} onPress={handleStart} activeOpacity={0.85}>
+            <Ionicons name="checkmark" size={18} color={Colors.bg} />
+            <Text style={styles.ctaText}>Start Cooking</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -257,7 +295,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  servingRow: {
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    alignItems: 'center',
     marginBottom: Spacing.lg,
+  },
+  servingLabel: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
+    color: Colors.muted,
+    letterSpacing: 1.2,
+    marginBottom: Spacing.sm,
+  },
+  servingControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
+  },
+  servingBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  servingValue: {
+    fontFamily: Fonts.heading,
+    fontSize: 36,
+    color: Colors.accent,
+    minWidth: 50,
+    textAlign: 'center',
+  },
+  servingHint: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
+    color: Colors.muted,
+    marginTop: 4,
   },
   metaItem: {
     flexDirection: 'row',
@@ -410,7 +491,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.lg,
   },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  youtubeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    paddingVertical: 16,
+  },
+  youtubeBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 15,
+    color: Colors.text,
+  },
   cta: {
+    flex: 1,
     backgroundColor: Colors.accent,
     borderRadius: 14,
     paddingVertical: 16,

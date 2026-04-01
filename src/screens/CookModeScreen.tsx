@@ -18,9 +18,24 @@ import { useCookStore } from '../store/cookStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CookMode'>;
 
-/** Parse **bold** markers in step text into styled Text elements */
-function RichStepText({ text, style, boldStyle }: { text: string; style: any; boldStyle: any }) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+/** Scale numeric amounts in a text string by the serving ratio */
+function scaleTextAmounts(text: string, ratio: number): string {
+  if (ratio === 1) return text;
+  // Match numbers (including decimals) that appear before units or ingredients
+  return text.replace(/(\d+\.?\d*)/g, (match) => {
+    const num = parseFloat(match);
+    if (isNaN(num)) return match;
+    const scaled = num * ratio;
+    // Format nicely: drop decimals if whole, otherwise 1 decimal
+    if (scaled === Math.floor(scaled)) return scaled.toString();
+    return scaled.toFixed(1).replace(/\.0$/, '');
+  });
+}
+
+/** Parse **bold** markers in step text into styled Text elements, with optional scaling */
+function RichStepText({ text, style, boldStyle, scaleRatio = 1 }: { text: string; style: any; boldStyle: any; scaleRatio?: number }) {
+  const scaledText = scaleTextAmounts(text, scaleRatio);
+  const parts = scaledText.split(/(\*\*[^*]+\*\*)/g);
   return (
     <Text style={style}>
       {parts.map((part, i) => {
@@ -181,6 +196,7 @@ export default function CookModeScreen({ route, navigation }: Props) {
             text={currentStep.text}
             style={styles.instructionText}
             boldStyle={styles.instructionBold}
+            scaleRatio={recipe.base_serves ? serves / recipe.base_serves : 1}
           />
         </View>
 

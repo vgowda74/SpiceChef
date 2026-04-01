@@ -30,6 +30,9 @@ import RecentScreen from './src/screens/RecentScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import AddRecipeScreen from './src/screens/AddRecipeScreen';
 import UpgradeScreen from './src/screens/UpgradeScreen';
+import MealPlanWizardScreen from './src/screens/MealPlanWizardScreen';
+import MealPlanViewScreen from './src/screens/MealPlanViewScreen';
+import GroceryListScreen from './src/screens/GroceryListScreen';
 import { setupIAP, teardownIAP } from './src/lib/iapService';
 import { fetchFeaturedCookbooks } from './src/lib/featuredService';
 import { useRecipeStore } from './src/store/recipeStore';
@@ -47,6 +50,9 @@ export type RootStackParamList = {
   Completion: { recipeId: string };
   AddRecipe: undefined;
   Upgrade: undefined;
+  MealPlanWizard: undefined;
+  MealPlanView: { planId: string };
+  GroceryList: { planId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -175,6 +181,13 @@ export default function App() {
           component={UpgradeScreen}
           options={{ animation: 'slide_from_bottom' }}
         />
+        <Stack.Screen
+          name="MealPlanWizard"
+          component={MealPlanWizardScreen}
+          options={{ animation: 'slide_from_bottom' }}
+        />
+        <Stack.Screen name="MealPlanView" component={MealPlanViewScreen} />
+        <Stack.Screen name="GroceryList" component={GroceryListScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

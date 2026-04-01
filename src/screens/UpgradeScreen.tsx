@@ -34,6 +34,12 @@ const FEATURES = [
     free: '20 recipes',
     pro: '50 recipes',
   },
+  {
+    icon: 'calendar' as const,
+    title: 'Meal Plans',
+    free: '1 plan',
+    pro: '20 plans',
+  },
 ];
 
 export default function UpgradeScreen() {

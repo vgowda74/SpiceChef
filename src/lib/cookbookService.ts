@@ -11,6 +11,7 @@ export function getLimits(isPro: boolean) {
     MAX_UPLOADS:              __DEV__ ? 999 : isPro ? 25 : 3,
     MAX_GENERATED_RECIPES:    __DEV__ ? 999 : isPro ? 100 : 5,
     MAX_RECIPES_PER_COOKBOOK:  __DEV__ ? 999 : isPro ? 50 : 20,
+    MAX_MEAL_PLANS:           __DEV__ ? 999 : isPro ? 20 : 1,
   };
 }
 

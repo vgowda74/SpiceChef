@@ -22,18 +22,12 @@ import { uploadAndParseCookbook, getLimits } from '../lib/cookbookService';
 import { maybeRequestReview } from '../lib/reviewService';
 import { usePurchaseStore } from '../store/purchaseStore';
 import { MY_RECIPES_COOKBOOK_ID } from '../lib/recipeGeneratorService';
+import { useMealPlanStore } from '../store/mealPlanStore';
 
 // Navigation prop can come from either the stack or the tab navigator
 type Props = {
   navigation: any;
 };
-
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning,';
-  if (hour < 17) return 'Good afternoon,';
-  return 'Good evening,';
-}
 
 // Simple emoji icons for cookbooks based on title
 function getCookbookEmoji(title: string): string {
@@ -100,6 +94,7 @@ export default function HomeLibraryScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { cookbooks, addCookbook, addPendingCookbook, resolvePendingCookbook, rejectPendingCookbook, lifetimeUploads, incrementLifetimeUploads } = useRecipeStore();
   const { isPro } = usePurchaseStore();
+  const { mealPlans, removeMealPlan } = useMealPlanStore();
   const limits = getLimits(isPro);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -191,16 +186,31 @@ export default function HomeLibraryScreen() {
     }
   };
 
+  const handleMealPlanTap = () => {
+    if (mealPlans.length > 0) {
+      Alert.alert(
+        'Replace meal plan?',
+        'Creating a new plan will replace your current one.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Create new', onPress: () => navigation.navigate('MealPlanWizard') },
+        ],
+      );
+    } else {
+      navigation.navigate('MealPlanWizard');
+    }
+  };
+
+  const formatPlanDate = (plan: { createdAt: string; days: { day: string }[] }) => {
+    const start = new Date(plan.createdAt);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `${fmt(start)} – ${fmt(end)}`;
+  };
+
   const renderHeader = () => (
     <View>
-      {/* Top bar */}
-      <View style={styles.topBar}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>{getGreeting()}</Text>
-          <Text style={styles.heading}>Your Library</Text>
-        </View>
-      </View>
-
       {/* Search bar */}
       <View style={styles.searchBar}>
         <Ionicons name="search-outline" size={18} color={Colors.muted} />
@@ -213,7 +223,7 @@ export default function HomeLibraryScreen() {
         />
       </View>
 
-      {/* Action buttons row */}
+      {/* Action buttons 2x2 grid */}
       <View style={styles.actionRow}>
         <TouchableOpacity style={[styles.actionBtn, styles.actionBtnUpload]} onPress={handleUpload} activeOpacity={0.75}>
           <View style={styles.actionIcon}>
@@ -240,9 +250,81 @@ export default function HomeLibraryScreen() {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.actionRow}>
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.actionBtnMealPlan]}
+          onPress={handleMealPlanTap}
+          activeOpacity={0.75}
+        >
+          <View style={styles.actionIcon}>
+            <Ionicons name="calendar-outline" size={20} color={Colors.accent} />
+          </View>
+          <View style={styles.actionText}>
+            <Text style={styles.actionLabel}>Meal Planner</Text>
+            <Text style={styles.actionSub}>Plan your week</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.actionBtnGrocery]}
+          onPress={() => {
+            if (mealPlans.length > 0) {
+              navigation.navigate('GroceryList', { planId: mealPlans[0].id });
+            } else {
+              Alert.alert('No meal plan', 'Create a meal plan first to get a grocery list.');
+            }
+          }}
+          activeOpacity={0.75}
+        >
+          <View style={styles.actionIcon}>
+            <Ionicons name="cart-outline" size={20} color={Colors.accent} />
+          </View>
+          <View style={styles.actionText}>
+            <Text style={styles.actionLabel}>Grocery List</Text>
+            <Text style={styles.actionSub}>From meal plan</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      {/* Meal Plans section */}
+      {mealPlans.length > 0 && (
+        <>
+          <Text style={styles.sectionLabel}>MEAL PLANS</Text>
+          {mealPlans.map((plan) => (
+            <TouchableOpacity
+              key={plan.id}
+              style={styles.mealPlanCard}
+              onPress={() => navigation.navigate('MealPlanView', { planId: plan.id })}
+              onLongPress={() => {
+                Alert.alert(
+                  'Delete Meal Plan',
+                  'Delete this meal plan and its grocery list?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: () => removeMealPlan(plan.id) },
+                  ],
+                );
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="calendar" size={18} color={Colors.accent} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.mealPlanCardTitle}>
+                  Week of {formatPlanDate(plan)}
+                </Text>
+                <Text style={styles.mealPlanCardSub}>
+                  {plan.days.length} days · {plan.days.reduce((sum, d) => sum + d.meals.length, 0)} meals · Serves {plan.servingSize}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+            </TouchableOpacity>
+          ))}
+        </>
+      )}
+
       {/* Section label */}
       {filteredCookbooks.length > 0 && (
-        <Text style={styles.sectionLabel}>
+        <Text style={[styles.sectionLabel, { marginTop: Spacing.lg }]}>
           MY COOKBOOKS ({filteredCookbooks.length})
         </Text>
       )}
@@ -303,28 +385,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xxl + 80, // extra space for tab bar
   },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.lg,
-  },
-  greeting: {
-    fontFamily: Fonts.body,
-    fontSize: 12,
-    color: Colors.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    marginBottom: 4,
-  },
-  heading: {
-    fontFamily: Fonts.heading,
-    fontSize: 38,
-    color: Colors.text,
-    lineHeight: 44,
-  },
   searchBar: {
+    marginTop: Spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.surface,
@@ -346,7 +408,7 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.sm,
   },
   actionBtn: {
     flex: 1,
@@ -363,6 +425,14 @@ const styles = StyleSheet.create({
   actionBtnCreate: {
     backgroundColor: '#2A2A1A',
     borderColor: '#4A4A28',
+  },
+  actionBtnMealPlan: {
+    backgroundColor: '#1A2A3A',
+    borderColor: '#284A5A',
+  },
+  actionBtnGrocery: {
+    backgroundColor: '#2A1A2A',
+    borderColor: '#4A284A',
   },
   actionIcon: {
     width: 40,
@@ -398,6 +468,27 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1.4,
     marginBottom: Spacing.md,
+  },
+  mealPlanCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    gap: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  mealPlanCardTitle: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 15,
+    color: Colors.text,
+  },
+  mealPlanCardSub: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.muted,
   },
   cookbookRow: {
     flexDirection: 'row',
