@@ -121,15 +121,22 @@ export default function HomeLibraryScreen() {
       )
     : cookbooks
   ).sort((a, b) => {
-    // "My Recipes" always first
+    // 1. "My Recipes" always first
     if (a.id === MY_RECIPES_COOKBOOK_ID) return -1;
     if (b.id === MY_RECIPES_COOKBOOK_ID) return 1;
-    // Featured cookbooks next (newest first)
+    // 2. User-uploaded cookbooks next (newest first)
+    const aUploaded = isUploadedCookbook(a.id);
+    const bUploaded = isUploadedCookbook(b.id);
+    if (aUploaded && !bUploaded) return -1;
+    if (!aUploaded && bUploaded) return 1;
+    if (aUploaded && bUploaded) return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    // 3. Featured cookbooks next (newest first)
     const aFeatured = isFeaturedCookbook(a.id);
     const bFeatured = isFeaturedCookbook(b.id);
     if (aFeatured && !bFeatured) return -1;
     if (!aFeatured && bFeatured) return 1;
     if (aFeatured && bFeatured) return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    // 4. Bundled cookbooks last
     return 0;
   });
 
@@ -190,15 +197,20 @@ export default function HomeLibraryScreen() {
         uploadAndParseCookbook(file.uri, file.name).then(({ cookbook, recipes }) => {
           resolvePendingCookbook(pendingId, cookbook, recipes);
           maybeRequestReview();
-          // Generate images for cookbook and recipes in background
-          generateRecipeImage(cookbook.id, cookbook.title, 'cookbook').then((url) => {
-            if (url) useRecipeStore.getState().setCookbookImage(cookbook.id, url);
-          });
-          recipes.forEach((r) => {
-            generateRecipeImage(r.id, r.title).then((url) => {
+          // Generate images for cookbook and recipes in background (sequentially)
+          console.log(`[SpiceChef] Generating images for "${cookbook.title}" (${cookbook.id}) + ${recipes.length} recipes`);
+          (async () => {
+            const coverUrl = await generateRecipeImage(cookbook.id, cookbook.title, 'cookbook');
+            if (coverUrl) {
+              console.log(`[SpiceChef] Cookbook cover ready: ${coverUrl}`);
+              useRecipeStore.getState().setCookbookImage(cookbook.id, coverUrl);
+            }
+            for (const r of recipes) {
+              const url = await generateRecipeImage(r.id, r.title);
               if (url) useRecipeStore.getState().setRecipeImage(r.id, url);
-            });
-          });
+            }
+            console.log(`[SpiceChef] All images done for "${cookbook.title}"`);
+          })();
         }).catch((err: any) => {
           rejectPendingCookbook(pendingId);
           Alert.alert(
