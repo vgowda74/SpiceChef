@@ -228,7 +228,7 @@ Deno.serve(async (req: Request) => {
     // 7. Validate parsed content
     if (!parsed.recipes || parsed.recipes.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'No recipes found in this PDF. Please make sure the file contains actual recipes with ingredients and instructions.' }),
+        JSON.stringify({ error: 'This doesn\'t appear to be a cookbook. We couldn\'t find any recipes with ingredients and cooking instructions. Please upload a PDF that contains recipes.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

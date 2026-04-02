@@ -76,17 +76,18 @@ const bytes = await file.bytes();
   if (fnError) {
     const msg = fnError.message || '';
     if (msg.includes('non-2xx') || msg.includes('Failed to send')) {
-      notify('error', 'Parsing took too long. This cookbook may have too many pages. Try a shorter one.');
-      throw new Error('This cookbook is too large to process. Try uploading a shorter cookbook or a section of it.');
+      const errMsg = 'This cookbook is taking too long to process. It may have too many pages — try a shorter one or a section of it.';
+      notify('error', errMsg);
+      throw new Error(errMsg);
     }
-    notify('error', `Parsing failed: ${msg}`);
-    throw new Error(`Parsing failed: ${msg}`);
+    notify('error', msg);
+    throw new Error(msg);
   }
 
   if (!fnData?.cookbook || !fnData?.recipes) {
-    const detail = fnData?.error || 'Unknown error';
-    notify('error', `Parsing failed: ${detail}`);
-    throw new Error(`Parse failed: ${detail}`);
+    const detail = fnData?.error || 'We couldn\'t find any recipes in this PDF. Please make sure the file is a cookbook with recipes.';
+    notify('error', detail);
+    throw new Error(detail);
   }
 
   // 3. Map database rows to app types
