@@ -128,17 +128,30 @@ export default function App() {
       }
     });
     // Generate images for user-created recipes missing them (in background)
+    // Use longer delay to ensure store has rehydrated from AsyncStorage
     setTimeout(() => {
       const store = useRecipeStore.getState();
       const userRecipes = store.recipes.filter(
         (r) => !r.image_url && (r.id.startsWith('my_') || r.cookbook_id === 'cb_my_recipes')
       );
-      userRecipes.forEach((r) => {
-        generateRecipeImage(r.id, r.title).then((url) => {
-          if (url) useRecipeStore.getState().setRecipeImage(r.id, url);
+      // Also check My Recipes cookbook cover
+      const myRecipesCb = store.cookbooks.find((cb) => cb.id === 'cb_my_recipes');
+      if (myRecipesCb && !myRecipesCb.image_url) {
+        generateRecipeImage('cb_my_recipes', 'My Recipes collection', 'cookbook').then((url) => {
+          if (url) useRecipeStore.getState().setCookbookImage('cb_my_recipes', url);
         });
-      });
-    }, 3000); // Delay to not block startup
+      }
+
+      console.log(`[SpiceChef] Found ${userRecipes.length} recipes without images`);
+      // Generate sequentially to avoid overwhelming the API
+      (async () => {
+        for (const r of userRecipes) {
+          console.log(`[SpiceChef] Generating image for: ${r.title}`);
+          const url = await generateRecipeImage(r.id, r.title);
+          if (url) useRecipeStore.getState().setRecipeImage(r.id, url);
+        }
+      })();
+    }, 5000);
     return () => { teardownIAP(); };
   }, []);
 

@@ -285,47 +285,35 @@ export default function RecipeBrowserScreen({ route, navigation }: Props) {
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <View style={styles.backRow}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-          <Ionicons name="chevron-back" size={22} color={Colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.backLabel}>Your Library</Text>
-      </View>
+      {/* Back button */}
+      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+        <Ionicons name="arrow-back" size={24} color={Colors.text} />
+        <Text style={styles.backLabel}>Back</Text>
+      </TouchableOpacity>
 
+      {/* Cookbook header */}
       <View style={styles.cookbookCard}>
-        <View style={[styles.cookbookIcon, { backgroundColor: cookbook?.accent_color ?? Colors.surface }]}>
-          <Text style={styles.cookbookEmoji}>{getCookbookEmoji(cookbook?.title ?? '')}</Text>
-        </View>
+        {cookbook?.image_url ? (
+          <Image source={{ uri: cookbook.image_url }} style={styles.cookbookThumb} />
+        ) : (
+          <View style={[styles.cookbookIcon, { backgroundColor: cookbook?.accent_color ?? Colors.surface }]}>
+            <Text style={styles.cookbookEmoji}>{getCookbookEmoji(cookbook?.title ?? '')}</Text>
+          </View>
+        )}
         <View style={styles.cookbookInfo}>
           <Text style={styles.cookbookName}>{cookbook?.title ?? 'Cookbook'}</Text>
           <Text style={styles.cookbookAuthor}>{cookbook?.author ?? ''}</Text>
-          <Text style={styles.cookbookStats}>{allRecipes.length} recipes</Text>
         </View>
-        <TouchableOpacity onPress={() => setShowModal(true)} activeOpacity={0.7}>
-          <Ionicons name="options-outline" size={22} color={Colors.muted} />
+        <TouchableOpacity style={styles.filterBtn} onPress={() => setShowModal(true)} activeOpacity={0.7}>
+          <Ionicons name="options-outline" size={20} color={Colors.bg} />
         </TouchableOpacity>
       </View>
-
-      {/* Active prefs summary */}
-      {(selectedDietary.size > 0 || usePantryFilter) && (
-        <View style={styles.prefsBadge}>
-          <Ionicons name="funnel-outline" size={13} color={Colors.accent} />
-          <Text style={styles.prefsBadgeText}>
-            {[selectedDietary.size > 0 && `${selectedDietary.size} dietary`, usePantryFilter && 'Pantry filter on'].filter(Boolean).join(' · ')}
-          </Text>
-          <TouchableOpacity onPress={() => { setSelectedDietary(new Set()); setUsePantryFilter(false); saveDietary([]); }} activeOpacity={0.7}>
-            <Text style={styles.prefsClear}>Clear</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <Text style={styles.recipeCount}>{filteredRecipes.length} RECIPES FOUND</Text>
 
       {filteredRecipes.length === 0 && allRecipes.length > 0 && (
         <View style={styles.emptyBox}>
           <Ionicons name="search-outline" size={40} color={Colors.border} />
           <Text style={styles.emptyTitle}>No matches</Text>
-          <Text style={styles.emptySub}>Try adjusting your dietary or ingredient preferences.</Text>
+          <Text style={styles.emptySub}>Try adjusting your preferences.</Text>
         </View>
       )}
     </View>
@@ -427,27 +415,26 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
   list: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xxl },
   header: { paddingTop: Spacing.sm, paddingBottom: Spacing.md },
-  backRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.lg, gap: 4 },
-  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', marginLeft: -8 },
-  backLabel: { fontFamily: Fonts.body, fontSize: 15, color: Colors.muted },
+  backBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginBottom: Spacing.md, paddingVertical: 4,
+  },
+  backLabel: { fontFamily: Fonts.bodySemiBold, fontSize: 16, color: Colors.text },
   cookbookCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface,
     borderRadius: 14, borderWidth: 1, borderColor: Colors.border,
     padding: Spacing.md, gap: Spacing.md, marginBottom: Spacing.md,
   },
-  cookbookIcon: { width: 56, height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  cookbookEmoji: { fontSize: 26 },
+  cookbookThumb: { width: 48, height: 48, borderRadius: 10 },
+  cookbookIcon: { width: 48, height: 48, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  cookbookEmoji: { fontSize: 22 },
   cookbookInfo: { flex: 1, gap: 2 },
-  cookbookName: { fontFamily: Fonts.bodySemiBold, fontSize: 18, color: Colors.text },
-  cookbookAuthor: { fontFamily: Fonts.body, fontSize: 13, color: Colors.accent },
-  cookbookStats: { fontFamily: Fonts.body, fontSize: 12, color: Colors.muted, marginTop: 2 },
-  prefsBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#1A2B1A', borderRadius: 8, borderWidth: 1, borderColor: '#2C4A2A',
-    paddingHorizontal: 12, paddingVertical: 8, marginBottom: Spacing.md,
+  cookbookName: { fontFamily: Fonts.bodySemiBold, fontSize: 16, color: Colors.text },
+  cookbookAuthor: { fontFamily: Fonts.body, fontSize: 12, color: Colors.muted },
+  filterBtn: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center',
   },
-  prefsBadgeText: { fontFamily: Fonts.body, fontSize: 12, color: Colors.accent, flex: 1 },
-  prefsClear: { fontFamily: Fonts.body, fontSize: 12, color: Colors.muted, textDecorationLine: 'underline' },
   filterScroll: { marginBottom: Spacing.md, marginHorizontal: -Spacing.lg },
   filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: Spacing.lg },
   filterChip: {
@@ -457,14 +444,13 @@ const styles = StyleSheet.create({
   filterChipActive: { backgroundColor: Colors.text, borderColor: Colors.text },
   filterText: { fontFamily: Fonts.body, fontSize: 13, color: Colors.muted },
   filterTextActive: { color: Colors.bg, fontFamily: Fonts.bodySemiBold },
-  recipeCount: { fontFamily: Fonts.body, fontSize: 11, color: Colors.muted, letterSpacing: 1.2, marginBottom: Spacing.md },
   rcGridRow: {
     justifyContent: 'space-between',
     marginBottom: R_CARD_GAP,
   },
   rcCard: {
     width: R_CARD_WIDTH,
-    height: R_CARD_WIDTH * 1.2,
+    height: R_CARD_WIDTH * 1.0,
     borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 1.5,
