@@ -42,6 +42,7 @@ Deno.serve(async (req) => {
     const {
       dietaryRestrictions,
       availableIngredients,
+      pantryOnly,
       mealTypes,
       drinkTypes,
       planMode,
@@ -77,7 +78,11 @@ Deno.serve(async (req) => {
     }
 
     if (availableIngredients && availableIngredients.length > 0) {
-      parts.push(`Ingredients I already have (exclude from grocery list): ${availableIngredients.join(', ')}.`);
+      if (pantryOnly) {
+        parts.push(`IMPORTANT: Only use these ingredients I already have: ${availableIngredients.join(', ')}. Do not suggest recipes that require ingredients not in this list. The grocery list should be empty or minimal.`);
+      } else {
+        parts.push(`Ingredients I already have (exclude from grocery list): ${availableIngredients.join(', ')}.`);
+      }
     }
 
     parts.push(`Plan mode: ${planMode === 'same' ? 'Same meals every day' : 'Different meals each day'}.`);

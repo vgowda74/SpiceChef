@@ -52,9 +52,10 @@ export default function MealPlanWizardScreen() {
   const { dietaryRestrictions: savedDietary, setDietaryRestrictions: saveDietary, getPantryNames } = usePantryStore();
   const limits = getLimits(isPro);
   const [step, setStep] = useState(1);
-  const [ingredientInput, setIngredientInput] = useState('');
   const [generating, setGenerating] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState('');
+  const [usePantryOnly, setUsePantryOnly] = useState(false);
+  const pantryNames = getPantryNames();
   // Pre-fill dietary restrictions and pantry items on mount
   useEffect(() => {
     if (savedDietary.length > 0 && wizard.dietaryRestrictions.length === 0) {
@@ -83,17 +84,7 @@ export default function MealPlanWizardScreen() {
     saveDietary(updated); // Persist for future use
   };
 
-  const addIngredient = () => {
-    const trimmed = ingredientInput.trim();
-    if (trimmed && !wizard.availableIngredients.includes(trimmed)) {
-      setWizardField('availableIngredients', [...wizard.availableIngredients, trimmed]);
-    }
-    setIngredientInput('');
-  };
 
-  const removeIngredient = (item: string) => {
-    setWizardField('availableIngredients', wizard.availableIngredients.filter((i) => i !== item));
-  };
 
   const toggleMealType = (key: MealType) => {
     const current = wizard.mealTypes;
@@ -142,7 +133,7 @@ export default function MealPlanWizardScreen() {
     }, 2500);
 
     try {
-      const plan = await generateMealPlan(wizard);
+      const plan = await generateMealPlan(wizard, usePantryOnly);
       clearInterval(msgInterval);
       addMealPlan(plan);
       incrementLifetimeMealPlans();
@@ -166,12 +157,12 @@ export default function MealPlanWizardScreen() {
 
   const renderStepContent = () => {
     switch (step) {
-      // Step 1: Dietary restrictions
+      // Step 1: Dietary restrictions + pantry option
       case 1:
         return (
           <View style={styles.stepContent}>
-            <Text style={styles.stepTitle}>Dietary Restrictions</Text>
-            <Text style={styles.stepHint}>Select any that apply, or skip.</Text>
+            <Text style={styles.stepTitle}>Your Preferences</Text>
+            <Text style={styles.stepHint}>Select dietary restrictions, or skip.</Text>
             <View style={styles.chipGrid}>
               {DIETARY_OPTIONS.map((item) => {
                 const selected = wizard.dietaryRestrictions.includes(item);
@@ -187,6 +178,24 @@ export default function MealPlanWizardScreen() {
                 );
               })}
             </View>
+
+            {pantryNames.length > 0 && (
+              <TouchableOpacity
+                style={[styles.pantryToggle, usePantryOnly && styles.pantryToggleActive]}
+                onPress={() => setUsePantryOnly(!usePantryOnly)}
+                activeOpacity={0.75}
+              >
+                <Ionicons
+                  name={usePantryOnly ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={usePantryOnly ? Colors.accent : Colors.muted}
+                />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.pantryToggleLabel}>Plan using only what's in my pantry</Text>
+                  <Text style={styles.pantryToggleHint}>{pantryNames.length} items in your pantry</Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
         );
 
@@ -446,6 +455,20 @@ const styles = StyleSheet.create({
   },
   chipText: { fontFamily: Fonts.body, fontSize: 14, color: Colors.muted },
   chipTextSelected: { fontFamily: Fonts.bodySemiBold, fontSize: 14, color: Colors.bg },
+  pantryToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  pantryToggleActive: { borderColor: Colors.accent },
+  pantryToggleLabel: { fontFamily: Fonts.bodySemiBold, fontSize: 14, color: Colors.text },
+  pantryToggleHint: { fontFamily: Fonts.body, fontSize: 12, color: Colors.muted },
 
   // Step 2 — ingredients input
   inputRow: {
