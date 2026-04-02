@@ -22,7 +22,7 @@ import { getLimits } from '../lib/cookbookService';
 import { usePurchaseStore } from '../store/purchaseStore';
 import { usePantryStore } from '../store/pantryStore';
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 4;
 
 const DIETARY_OPTIONS = [
   'Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free',
@@ -191,48 +191,8 @@ export default function MealPlanWizardScreen() {
         );
 
       // Step 2: Ingredients on hand
+      // Step 2: Meal types
       case 2:
-        return (
-          <View style={styles.stepContent}>
-            <Text style={styles.stepTitle}>What's in Your Pantry?</Text>
-            <Text style={styles.stepHint}>
-              Add ingredients you already have. These will be excluded from your grocery list.
-            </Text>
-            <View style={styles.inputRow}>
-              <TextInput
-                style={styles.textInput}
-                value={ingredientInput}
-                onChangeText={setIngredientInput}
-                placeholder="e.g. olive oil, garlic, rice..."
-                placeholderTextColor={Colors.muted}
-                selectionColor={Colors.accent}
-                onSubmitEditing={addIngredient}
-                returnKeyType="done"
-              />
-              <TouchableOpacity style={styles.addBtn} onPress={addIngredient} activeOpacity={0.7}>
-                <Ionicons name="add" size={20} color={Colors.bg} />
-              </TouchableOpacity>
-            </View>
-            {wizard.availableIngredients.length > 0 && (
-              <View style={styles.chipGrid}>
-                {wizard.availableIngredients.map((item) => (
-                  <TouchableOpacity
-                    key={item}
-                    style={[styles.chip, styles.chipSelected]}
-                    onPress={() => removeIngredient(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.chipTextSelected}>{item}</Text>
-                    <Ionicons name="close" size={14} color={Colors.bg} />
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-        );
-
-      // Step 3: Meal types
-      case 3:
         return (
           <View style={styles.stepContent}>
             <Text style={styles.stepTitle}>What Meals to Plan?</Text>
@@ -286,8 +246,8 @@ export default function MealPlanWizardScreen() {
           </View>
         );
 
-      // Step 4: Same vs varied
-      case 4:
+      // Step 3: Same vs varied
+      case 3:
         return (
           <View style={styles.stepContent}>
             <Text style={styles.stepTitle}>Weekly Variety</Text>
@@ -320,8 +280,8 @@ export default function MealPlanWizardScreen() {
           </View>
         );
 
-      // Step 5: Serving size
-      case 5:
+      // Step 4: Serving size
+      case 4:
         return (
           <View style={styles.stepContent}>
             <Text style={styles.stepTitle}>How Many People?</Text>
@@ -386,7 +346,7 @@ export default function MealPlanWizardScreen() {
       <View style={styles.footer}>
         {step < TOTAL_STEPS ? (
           <View style={styles.footerRow}>
-            {(step === 1 || step === 2) && (
+            {step === 1 && (
               <TouchableOpacity style={styles.skipBtn} onPress={goNext} activeOpacity={0.7}>
                 <Text style={styles.skipText}>Skip</Text>
               </TouchableOpacity>

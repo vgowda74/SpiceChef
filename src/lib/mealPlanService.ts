@@ -6,17 +6,22 @@ import {
   GroceryItem,
   MealPlanWizard,
 } from '../store/mealPlanStore';
+import { usePantryStore } from '../store/pantryStore';
 
 /**
  * Generate a 7-day meal plan via the Supabase edge function.
+ * Reads pantry items from persistent store to exclude from grocery list.
  */
 export async function generateMealPlan(wizard: MealPlanWizard): Promise<MealPlan> {
   if (!supabase) throw new Error('Supabase is not configured.');
 
+  // Get pantry items from persistent store
+  const pantryNames = usePantryStore.getState().getPantryNames();
+
   const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
     body: {
       dietaryRestrictions: wizard.dietaryRestrictions,
-      availableIngredients: wizard.availableIngredients,
+      availableIngredients: pantryNames,
       mealTypes: wizard.mealTypes,
       drinkTypes: wizard.drinkTypes,
       planMode: wizard.planMode,
