@@ -248,57 +248,22 @@ export default function HomeLibraryScreen() {
       {/* Action buttons 2x2 grid */}
       <View style={styles.actionRow}>
         <TouchableOpacity style={[styles.actionBtn, styles.actionBtnUpload]} onPress={handleUpload} activeOpacity={0.75}>
-          <View style={styles.actionIcon}>
-            <Ionicons name="arrow-up" size={20} color={Colors.accent} />
-          </View>
-          <View style={styles.actionText}>
-            <Text style={styles.actionLabel}>Upload cookbook</Text>
-            <Text style={styles.actionSub}>PDF · Any cuisine</Text>
-          </View>
+          <Ionicons name="arrow-up" size={18} color={Colors.accent} />
+          <Text style={styles.actionLabel}>Upload cookbook</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.actionBtnCreate]}
-          onPress={() => navigation.navigate('AddRecipe')}
-          activeOpacity={0.75}
-        >
-          <View style={[styles.actionIcon, styles.actionIconCreate]}>
-            <Ionicons name="sparkles" size={20} color={Colors.bg} />
-          </View>
-          <View style={styles.actionText}>
-            <Text style={styles.actionLabel}>Add recipe</Text>
-            <Text style={styles.actionSub}>Describe · AI generates</Text>
-          </View>
+        <TouchableOpacity style={[styles.actionBtn, styles.actionBtnCreate]} onPress={() => navigation.navigate('AddRecipe')} activeOpacity={0.75}>
+          <Ionicons name="sparkles" size={18} color={Colors.accent} />
+          <Text style={styles.actionLabel}>AI Recipe</Text>
         </TouchableOpacity>
       </View>
-
       <View style={styles.actionRow}>
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.actionBtnMealPlan]}
-          onPress={handleMealPlanTap}
-          activeOpacity={0.75}
-        >
-          <View style={styles.actionIcon}>
-            <Ionicons name="calendar-outline" size={20} color={Colors.accent} />
-          </View>
-          <View style={styles.actionText}>
-            <Text style={styles.actionLabel}>Meal Planner</Text>
-            <Text style={styles.actionSub}>Plan your week</Text>
-          </View>
+        <TouchableOpacity style={[styles.actionBtn, styles.actionBtnMealPlan]} onPress={handleMealPlanTap} activeOpacity={0.75}>
+          <Ionicons name="calendar-outline" size={18} color={Colors.accent} />
+          <Text style={styles.actionLabel}>Meal Planner</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.actionBtnGrocery]}
-          onPress={() => navigation.navigate('GroceryList')}
-          activeOpacity={0.75}
-        >
-          <View style={styles.actionIcon}>
-            <Ionicons name="cart-outline" size={20} color={Colors.accent} />
-          </View>
-          <View style={styles.actionText}>
-            <Text style={styles.actionLabel}>Grocery & Pantry</Text>
-            <Text style={styles.actionSub}>Shopping list</Text>
-          </View>
+        <TouchableOpacity style={[styles.actionBtn, styles.actionBtnGrocery]} onPress={() => navigation.navigate('GroceryList')} activeOpacity={0.75}>
+          <Ionicons name="cart-outline" size={18} color={Colors.accent} />
+          <Text style={styles.actionLabel}>Grocery & Pantry</Text>
         </TouchableOpacity>
       </View>
 
@@ -338,12 +303,6 @@ export default function HomeLibraryScreen() {
         </>
       )}
 
-      {/* Section label */}
-      {filteredCookbooks.length > 0 && (
-        <Text style={[styles.sectionLabel, { marginTop: Spacing.lg }]}>
-          MY COOKBOOKS ({filteredCookbooks.length})
-        </Text>
-      )}
     </View>
   );
 
@@ -429,10 +388,12 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
-    flexDirection: 'column',
-    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
     borderWidth: 1,
-    padding: Spacing.md,
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.md,
     gap: Spacing.sm,
   },
   actionBtnUpload: {
@@ -451,32 +412,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#2A1A2A',
     borderColor: '#4A284A',
   },
-  actionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    borderWidth: 1.5,
-    borderColor: Colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionIconCreate: {
-    backgroundColor: Colors.accent,
-    borderColor: Colors.accent,
-  },
-  actionText: {
-    gap: 2,
-  },
   actionLabel: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.text,
-  },
-  actionSub: {
-    fontFamily: Fonts.body,
-    fontSize: 12,
-    color: Colors.muted,
   },
   sectionLabel: {
     fontFamily: Fonts.body,
@@ -513,7 +452,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: CARD_WIDTH,
-    height: CARD_WIDTH * 1.4,
+    height: CARD_WIDTH * 1.15,
     borderRadius: 6,
     overflow: 'hidden',
     borderWidth: 2,
