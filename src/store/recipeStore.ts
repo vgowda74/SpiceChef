@@ -499,10 +499,28 @@ export const useRecipeStore = create<RecipeState>()(persist((set, get) => ({
     }));
   },
 
-  /** Add a Claude-generated recipe to the My Recipes cookbook, creating it if needed */
+  /** Add a Claude-generated recipe to the My Recipes cookbook, creating it if needed.
+   *  Skips duplicates by checking title similarity. */
   addGeneratedRecipe: (recipe) => {
     const MY_ID = 'cb_my_recipes';
     set((state) => {
+      // Check for duplicate by title similarity
+      const newTitle = recipe.title.toLowerCase().trim();
+      const isDuplicate = state.recipes.some((r) => {
+        if (r.cookbook_id !== MY_ID) return false;
+        const existingTitle = r.title.toLowerCase().trim();
+        // Exact match
+        if (existingTitle === newTitle) return true;
+        // One contains the other (e.g. "Butter Chicken" vs "Creamy Butter Chicken")
+        if (existingTitle.includes(newTitle) || newTitle.includes(existingTitle)) return true;
+        return false;
+      });
+
+      if (isDuplicate) {
+        console.log(`[SpiceChef] Skipping duplicate recipe: "${recipe.title}"`);
+        return state; // No change
+      }
+
       const exists = state.cookbooks.some((cb) => cb.id === MY_ID);
       const myCookbook: Cookbook = {
         id: MY_ID,
@@ -520,7 +538,7 @@ export const useRecipeStore = create<RecipeState>()(persist((set, get) => ({
         : [...state.cookbooks, { ...myCookbook, recipe_count: 1 }];
       return {
         cookbooks: updatedCookbooks,
-        recipes: [...state.recipes, recipe],
+        recipes: [...state.recipes, { ...recipe, cookbook_id: MY_ID }],
       };
     });
   },
