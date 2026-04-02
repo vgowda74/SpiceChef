@@ -198,16 +198,19 @@ export default function HomeLibraryScreen() {
           resolvePendingCookbook(pendingId, cookbook, recipes);
           maybeRequestReview();
           // Generate images for cookbook and recipes in background (sequentially)
-          console.log(`[SpiceChef] Generating images for "${cookbook.title}" (${cookbook.id}) + ${recipes.length} recipes`);
+          // Use pendingId since resolvePendingCookbook keeps the pending ID
+          console.log(`[SpiceChef] Generating images for "${cookbook.title}" (pendingId=${pendingId}) + ${recipes.length} recipes`);
           (async () => {
-            const coverUrl = await generateRecipeImage(cookbook.id, cookbook.title, 'cookbook');
+            const coverUrl = await generateRecipeImage(pendingId, cookbook.title, 'cookbook');
             if (coverUrl) {
               console.log(`[SpiceChef] Cookbook cover ready: ${coverUrl}`);
-              useRecipeStore.getState().setCookbookImage(cookbook.id, coverUrl);
+              useRecipeStore.getState().setCookbookImage(pendingId, coverUrl);
             }
             for (const r of recipes) {
-              const url = await generateRecipeImage(r.id, r.title);
-              if (url) useRecipeStore.getState().setRecipeImage(r.id, url);
+              // Recipes also have cookbook_id remapped to pendingId
+              const recipeId = r.id;
+              const url = await generateRecipeImage(recipeId, r.title);
+              if (url) useRecipeStore.getState().setRecipeImage(recipeId, url);
             }
             console.log(`[SpiceChef] All images done for "${cookbook.title}"`);
           })();
