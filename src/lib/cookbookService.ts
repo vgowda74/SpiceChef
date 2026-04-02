@@ -74,8 +74,13 @@ const bytes = await file.bytes();
   );
 
   if (fnError) {
-    notify('error', `Parsing failed: ${fnError.message}`);
-    throw new Error(`Edge function failed: ${fnError.message}`);
+    const msg = fnError.message || '';
+    if (msg.includes('non-2xx') || msg.includes('Failed to send')) {
+      notify('error', 'Parsing took too long. This cookbook may have too many pages. Try a shorter one.');
+      throw new Error('This cookbook is too large to process. Try uploading a shorter cookbook or a section of it.');
+    }
+    notify('error', `Parsing failed: ${msg}`);
+    throw new Error(`Parsing failed: ${msg}`);
   }
 
   if (!fnData?.cookbook || !fnData?.recipes) {

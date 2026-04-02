@@ -39,7 +39,7 @@ interface ParsedCookbook {
   recipes: ParsedRecipe[];
 }
 
-const CLAUDE_PARSE_PROMPT = `You are a cookbook parser. Analyze this PDF and extract ALL recipes you can find (up to ${MAX_RECIPES_PER_COOKBOOK}).
+const CLAUDE_PARSE_PROMPT = `You are a cookbook parser. Analyze this PDF and extract up to 10 of the best recipes. Keep descriptions concise.
 
 Return a JSON object with this exact structure:
 {
@@ -79,7 +79,7 @@ Rules:
 - "duration_mins" is the total estimated cooking time
 - Each step "title" should be a concise action phrase like "Sauté the aromatics"
 - In step "text", wrap key ingredients and times in **bold** markdown
-- Extract every recipe you can find in the PDF (max ${MAX_RECIPES_PER_COOKBOOK})
+- Extract up to 10 best recipes, keep step text brief
 - If author or title isn't clear from the PDF, make your best guess from context
 - If the PDF doesn't contain recipes, return: {"title":"","author":"","recipes":[]}
 
@@ -206,10 +206,23 @@ Deno.serve(async (req: Request) => {
       const jsonStr = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       parsed = JSON.parse(jsonStr);
     } catch {
-      return new Response(
-        JSON.stringify({ error: 'Could not extract recipes from this PDF. It may not contain recognizable recipes, or the format is not supported.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      // Try extracting JSON from within the response
+      const match = rawText.match(/\{[\s\S]*\}/);
+      if (match) {
+        try {
+          parsed = JSON.parse(match[0]);
+        } catch {
+          return new Response(
+            JSON.stringify({ error: 'Could not extract recipes from this PDF. It may not contain recognizable recipes, or the format is not supported.', debug: rawText.substring(0, 200) }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } else {
+        return new Response(
+          JSON.stringify({ error: 'Could not extract recipes from this PDF. It may not contain recognizable recipes, or the format is not supported.', debug: rawText.substring(0, 200) }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // 7. Validate parsed content
