@@ -9,6 +9,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const MAX_PDF_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB
+const MAX_RECIPES_PER_COOKBOOK = 50;
+
 interface ParsedRecipe {
   title: string;
   ingredients: {
@@ -23,7 +26,7 @@ interface ParsedRecipe {
     text: string;
     timer_seconds?: number;
     timer_label?: string;
-    needed_ingredients?: string[];
+    needed_ingredients?: { name: string; amount: number; unit: string }[];
   }[];
   base_serves: number;
   tags: string[];
@@ -36,7 +39,7 @@ interface ParsedCookbook {
   recipes: ParsedRecipe[];
 }
 
-const CLAUDE_PARSE_PROMPT = `You are a cookbook parser. Analyze this PDF and extract ALL recipes you can find.
+const CLAUDE_PARSE_PROMPT = `You are a cookbook parser. Analyze this PDF and extract ALL recipes you can find (up to ${MAX_RECIPES_PER_COOKBOOK}).
 
 Return a JSON object with this exact structure:
 {
@@ -55,7 +58,9 @@ Return a JSON object with this exact structure:
           "text": "Detailed instruction text. Use **bold** for key ingredients and times.",
           "timer_seconds": 480,
           "timer_label": "Description of what the timer is for",
-          "needed_ingredients": ["2 tbsp oil", "1 onion, diced"]
+          "needed_ingredients": [
+            { "name": "Ingredient name", "amount": 2, "unit": "tbsp" }
+          ]
         }
       ],
       "base_serves": 4,
@@ -69,18 +74,18 @@ Rules:
 - "category" must be one of: PRODUCE, PROTEIN, DAIRY, SPICES, PANTRY, OTHER
 - "amount" must be a number (use 0 if not specified, convert fractions: ½=0.5, ¼=0.25)
 - "timer_seconds" only when the step has a specific wait/cook time
-- "needed_ingredients" lists the specific ingredients + amounts needed for that step
-- "tags" should include cuisine type, dietary info (Vegetarian, Vegan), key ingredients, difficulty
+- "needed_ingredients" must be objects with name, amount, unit — matching the top-level ingredients
+- "tags" should include cuisine type, dietary info (Vegetarian, Vegan, Non-Veg), key ingredients
 - "duration_mins" is the total estimated cooking time
 - Each step "title" should be a concise action phrase like "Sauté the aromatics"
 - In step "text", wrap key ingredients and times in **bold** markdown
-- Extract every recipe you can find in the PDF
+- Extract every recipe you can find in the PDF (max ${MAX_RECIPES_PER_COOKBOOK})
 - If author or title isn't clear from the PDF, make your best guess from context
+- If the PDF doesn't contain recipes, return: {"title":"","author":"","recipes":[]}
 
 Return ONLY valid JSON, no markdown fences, no explanation.`;
 
 Deno.serve(async (req: Request) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -90,7 +95,7 @@ Deno.serve(async (req: Request) => {
 
     if (!file_path) {
       return new Response(
-        JSON.stringify({ error: 'file_path is required' }),
+        JSON.stringify({ error: 'Missing file path. Please select a PDF to upload.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -98,36 +103,53 @@ Deno.serve(async (req: Request) => {
     const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
     if (!anthropicKey) {
       return new Response(
-        JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }),
+        JSON.stringify({ error: 'Recipe parsing service is temporarily unavailable. Please try again later.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Create Supabase admin client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Download PDF from Storage
+    // 1. Download PDF from Storage
     const { data: fileData, error: downloadError } = await supabaseAdmin.storage
       .from('cookbooks')
       .download(file_path);
 
     if (downloadError || !fileData) {
       return new Response(
-        JSON.stringify({ error: 'Failed to download PDF', details: downloadError?.message }),
+        JSON.stringify({ error: 'Could not read your PDF file. It may have been removed or is corrupted. Please try uploading again.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Convert PDF to base64
+    // 2. Validate file size
     const arrayBuffer = await fileData.arrayBuffer();
+    if (arrayBuffer.byteLength > MAX_PDF_SIZE_BYTES) {
+      return new Response(
+        JSON.stringify({ error: `This PDF is too large (${(arrayBuffer.byteLength / 1024 / 1024).toFixed(1)} MB). Maximum size is ${MAX_PDF_SIZE_BYTES / 1024 / 1024} MB. Try a shorter cookbook or split it into sections.` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 3. Validate it looks like a PDF
+    const header = new Uint8Array(arrayBuffer.slice(0, 5));
+    const pdfHeader = String.fromCharCode(...header);
+    if (!pdfHeader.startsWith('%PDF')) {
+      return new Response(
+        JSON.stringify({ error: 'This file is not a valid PDF. Please upload a PDF cookbook.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 4. Convert to base64
     const base64Pdf = btoa(
       new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
     );
 
-    // Send to Claude API for parsing
+    // 5. Send to Claude API for parsing
     const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -162,35 +184,66 @@ Deno.serve(async (req: Request) => {
 
     if (!claudeResponse.ok) {
       const errText = await claudeResponse.text();
+      // Parse Claude error for user-friendly message
+      if (errText.includes('credit balance') || errText.includes('usage limits')) {
+        return new Response(
+          JSON.stringify({ error: 'Our recipe parsing service is at capacity right now. Please try again in a few minutes.' }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       return new Response(
-        JSON.stringify({ error: 'Claude API error', details: errText }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Failed to analyze your cookbook. Please try again.' }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const claudeResult = await claudeResponse.json();
     const rawText = claudeResult.content?.[0]?.text ?? '';
 
-    // Parse Claude's JSON response
+    // 6. Parse Claude's JSON response
     let parsed: ParsedCookbook;
     try {
-      // Strip markdown fences if present
       const jsonStr = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       parsed = JSON.parse(jsonStr);
     } catch {
       return new Response(
-        JSON.stringify({ error: 'Failed to parse Claude response as JSON', raw: rawText }),
+        JSON.stringify({ error: 'Could not extract recipes from this PDF. It may not contain recognizable recipes, or the format is not supported.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Save cookbook to database
+    // 7. Validate parsed content
+    if (!parsed.recipes || parsed.recipes.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'No recipes found in this PDF. Please make sure the file contains actual recipes with ingredients and instructions.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Limit recipes
+    if (parsed.recipes.length > MAX_RECIPES_PER_COOKBOOK) {
+      parsed.recipes = parsed.recipes.slice(0, MAX_RECIPES_PER_COOKBOOK);
+    }
+
+    // Validate each recipe has minimum required data
+    parsed.recipes = parsed.recipes.filter((r) =>
+      r.title && r.ingredients && r.ingredients.length > 0 && r.steps && r.steps.length > 0
+    );
+
+    if (parsed.recipes.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'The recipes in this PDF could not be properly parsed. They may be in a format we don\'t support yet (e.g. images only, no text).' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 8. Save cookbook to database
     const { data: cookbookRow, error: cbError } = await supabaseAdmin
       .from('cookbooks')
       .insert({
         user_id: user_id || null,
-        title: parsed.title,
-        author: parsed.author,
+        title: parsed.title || 'Untitled Cookbook',
+        author: parsed.author || 'Unknown',
         file_url: file_path,
         recipe_count: parsed.recipes.length,
       })
@@ -199,21 +252,21 @@ Deno.serve(async (req: Request) => {
 
     if (cbError || !cookbookRow) {
       return new Response(
-        JSON.stringify({ error: 'Failed to save cookbook', details: cbError?.message }),
+        JSON.stringify({ error: 'Could not save the cookbook. Please try again.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Save recipes to database
+    // 9. Save recipes to database
     const recipesToInsert = parsed.recipes.map((r) => ({
       cookbook_id: cookbookRow.id,
       user_id: user_id || null,
       title: r.title,
       ingredients: r.ingredients,
       steps: r.steps,
-      base_serves: r.base_serves,
-      tags: r.tags,
-      duration_mins: r.duration_mins,
+      base_serves: r.base_serves || 4,
+      tags: r.tags || [],
+      duration_mins: r.duration_mins || 0,
     }));
 
     const { data: recipeRows, error: recipeError } = await supabaseAdmin
@@ -222,13 +275,15 @@ Deno.serve(async (req: Request) => {
       .select();
 
     if (recipeError) {
+      // Clean up cookbook if recipes fail
+      await supabaseAdmin.from('cookbooks').delete().eq('id', cookbookRow.id);
       return new Response(
-        JSON.stringify({ error: 'Failed to save recipes', details: recipeError.message }),
+        JSON.stringify({ error: 'Could not save the recipes. Please try again.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Return the full result
+    // 10. Return success
     return new Response(
       JSON.stringify({
         cookbook: cookbookRow,
@@ -238,7 +293,7 @@ Deno.serve(async (req: Request) => {
     );
   } catch (err) {
     return new Response(
-      JSON.stringify({ error: 'Internal error', details: String(err) }),
+      JSON.stringify({ error: 'Something went wrong processing your cookbook. Please try again.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

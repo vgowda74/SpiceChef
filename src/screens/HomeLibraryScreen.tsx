@@ -81,9 +81,9 @@ function CookbookCard({
   return (
     <TouchableOpacity
       style={styles.card}
-      onPress={cookbook.loading ? undefined : onPress}
-      onLongPress={cookbook.loading ? undefined : onLongPress}
-      activeOpacity={cookbook.loading ? 1 : 0.8}
+      onPress={cookbook.loading ? onLongPress : onPress}
+      onLongPress={onLongPress}
+      activeOpacity={0.8}
     >
       {cookbook.image_url ? (
         <ImageBackground
@@ -154,6 +154,12 @@ export default function HomeLibraryScreen() {
 
       const file = result.assets[0];
 
+      // Validate file format
+      if (!file.name.toLowerCase().endsWith('.pdf')) {
+        Alert.alert('Invalid file', 'Please select a PDF file.');
+        return;
+      }
+
       // Check file size
       if (file.size && file.size > limits.MAX_PDF_SIZE_BYTES) {
         const maxMB = Math.round(limits.MAX_PDF_SIZE_BYTES / (1024 * 1024));
@@ -162,6 +168,12 @@ export default function HomeLibraryScreen() {
           'File too large',
           `This PDF is ${fileMB} MB. The maximum size is ${maxMB} MB — try a shorter cookbook.`,
         );
+        return;
+      }
+
+      // Check minimum size (likely not a real cookbook if under 50KB)
+      if (file.size && file.size < 50 * 1024) {
+        Alert.alert('File too small', 'This file doesn\'t appear to be a cookbook. Please select a PDF with recipes.');
         return;
       }
 

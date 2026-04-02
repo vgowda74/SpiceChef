@@ -40,6 +40,14 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // Block test cookbooks
+    if (cookbook.title.toLowerCase().includes('test')) {
+      return new Response(
+        JSON.stringify({ error: 'Test cookbooks are not allowed' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     // Check for duplicate title
     const { data: existing } = await supabase
       .from('cookbooks')

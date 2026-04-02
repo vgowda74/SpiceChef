@@ -131,18 +131,29 @@ export default function App() {
     // Use longer delay to ensure store has rehydrated from AsyncStorage
     setTimeout(() => {
       const store = useRecipeStore.getState();
-      const userRecipes = store.recipes.filter(
-        (r) => !r.image_url && (r.id.startsWith('my_') || r.cookbook_id === 'cb_my_recipes')
+
+      // Debug all My Recipes
+      const allMyRecipes = store.recipes.filter(
+        (r) => r.id.startsWith('my_') || r.cookbook_id === 'cb_my_recipes'
       );
+      console.log(`[SpiceChef] Total My Recipes: ${allMyRecipes.length}`);
+      allMyRecipes.forEach((r) => {
+        console.log(`[SpiceChef]   "${r.title}" id=${r.id} image=${r.image_url || 'NONE'}`);
+      });
+
+      // Force regenerate ALL My Recipes images (ignore existing URLs — they may be broken)
+      const userRecipes = allMyRecipes;
+
       // Also check My Recipes cookbook cover
       const myRecipesCb = store.cookbooks.find((cb) => cb.id === 'cb_my_recipes');
-      if (myRecipesCb && !myRecipesCb.image_url) {
+      console.log(`[SpiceChef] My Recipes cookbook image: ${myRecipesCb?.image_url || 'NONE'}`);
+      if (myRecipesCb) {
         generateRecipeImage('cb_my_recipes', 'My Recipes collection', 'cookbook').then((url) => {
           if (url) useRecipeStore.getState().setCookbookImage('cb_my_recipes', url);
         });
       }
 
-      console.log(`[SpiceChef] Found ${userRecipes.length} recipes without images`);
+      console.log(`[SpiceChef] Regenerating images for ${userRecipes.length} recipes`);
       // Generate sequentially to avoid overwhelming the API
       (async () => {
         for (const r of userRecipes) {

@@ -34,8 +34,8 @@ const FEATURES = [
   },
   {
     icon: 'cart-outline' as const,
-    title: 'Smart Grocery List',
-    description: 'Auto-generated shopping list from your meal plan — grouped by category, no duplicates, excludes what you already have.',
+    title: 'Grocery & Pantry',
+    description: 'Track what you have, know what to buy. Pantry-aware grocery list — tap to move items between pantry and shopping list. Assign stores like Walmart or Costco.',
   },
   {
     icon: 'flame-outline' as const,
