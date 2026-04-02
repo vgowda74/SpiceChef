@@ -597,16 +597,27 @@ export const useRecipeStore = create<RecipeState>()(persist((set, get) => ({
       const cleanedCookbooks = state.cookbooks.filter((cb) => !oldFeaturedCbIds.has(cb.id));
       const cleanedRecipes = state.recipes.filter((r) => !oldFeaturedCbIds.has(r.cookbook_id));
 
-      // Add new featured cookbooks and recipes that aren't already present
-      const existingCbIds = new Set(cleanedCookbooks.map((cb) => cb.id));
-      const existingRecipeIds = new Set(cleanedRecipes.map((r) => r.id));
+      // Update existing featured cookbooks with fresh data (e.g. new image_url)
+      // and add any new ones
+      const newCbMap = new Map(newCookbooks.map((cb) => [cb.id, cb]));
+      const newRecipeMap = new Map(newRecipes.map((r) => [r.id, r]));
+
+      const updatedCookbooks = cleanedCookbooks.map((cb) =>
+        newCbMap.has(cb.id) ? { ...cb, ...newCbMap.get(cb.id) } : cb
+      );
+      const updatedRecipes = cleanedRecipes.map((r) =>
+        newRecipeMap.has(r.id) ? { ...r, ...newRecipeMap.get(r.id) } : r
+      );
+
+      const existingCbIds = new Set(updatedCookbooks.map((cb) => cb.id));
+      const existingRecipeIds = new Set(updatedRecipes.map((r) => r.id));
 
       const addedCookbooks = newCookbooks.filter((cb) => !existingCbIds.has(cb.id));
       const addedRecipes = newRecipes.filter((r) => !existingRecipeIds.has(r.id));
 
       return {
-        cookbooks: [...cleanedCookbooks, ...addedCookbooks],
-        recipes: [...cleanedRecipes, ...addedRecipes],
+        cookbooks: [...updatedCookbooks, ...addedCookbooks],
+        recipes: [...updatedRecipes, ...addedRecipes],
       };
     });
   },
