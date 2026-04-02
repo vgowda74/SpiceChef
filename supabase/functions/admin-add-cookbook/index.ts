@@ -61,6 +61,7 @@ Deno.serve(async (req) => {
       .insert({
         title: cookbook.title,
         author: cookbook.author || '',
+        cover_url: cookbook.cover_url || null,
         recipe_count: recipes.length,
         is_featured: true,
         user_id: null,
@@ -87,6 +88,7 @@ Deno.serve(async (req) => {
       base_serves: r.base_serves || 4,
       tags: r.tags || [],
       duration_mins: r.duration_mins || 0,
+      image_url: r.image_url || null,
     }));
 
     const { data: insertedRecipes, error: rError } = await supabase

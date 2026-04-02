@@ -44,6 +44,7 @@ export async function generateMealPlan(wizard: MealPlanWizard): Promise<MealPlan
     name: g.name,
     amount: g.amount || '',
     category: g.category || 'PANTRY',
+    group: g.category || 'PANTRY', // default group = category
     checked: false,
   }));
 
@@ -53,6 +54,7 @@ export async function generateMealPlan(wizard: MealPlanWizard): Promise<MealPlan
     servingSize: wizard.servingSize,
     days,
     groceryList,
+    customGroups: [],
   };
 
   return plan;

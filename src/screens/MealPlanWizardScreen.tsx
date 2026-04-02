@@ -20,6 +20,7 @@ import { useMealPlanStore, MealType, DrinkType } from '../store/mealPlanStore';
 import { generateMealPlan } from '../lib/mealPlanService';
 import { getLimits } from '../lib/cookbookService';
 import { usePurchaseStore } from '../store/purchaseStore';
+import { usePantryStore } from '../store/pantryStore';
 
 const TOTAL_STEPS = 5;
 
@@ -48,10 +49,25 @@ export default function MealPlanWizardScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { wizard, setWizardField, resetWizard, addMealPlan, incrementLifetimeMealPlans, lifetimeMealPlans } = useMealPlanStore();
   const { isPro } = usePurchaseStore();
+  const { dietaryRestrictions: savedDietary, setDietaryRestrictions: saveDietary, getPantryNames } = usePantryStore();
   const limits = getLimits(isPro);
   const [step, setStep] = useState(1);
   const [ingredientInput, setIngredientInput] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [loadingMsg, setLoadingMsg] = useState('');
+  const [initialized, setInitialized] = useState(false);
+
+  // Pre-fill dietary restrictions and pantry items on first render
+  if (!initialized) {
+    if (savedDietary.length > 0 && wizard.dietaryRestrictions.length === 0) {
+      setWizardField('dietaryRestrictions', savedDietary);
+    }
+    const pantryNames = getPantryNames();
+    if (pantryNames.length > 0 && wizard.availableIngredients.length === 0) {
+      setWizardField('availableIngredients', pantryNames);
+    }
+    setInitialized(true);
+  }
 
   const goNext = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS));
   const goBack = () => {
@@ -65,10 +81,9 @@ export default function MealPlanWizardScreen() {
 
   const toggleDietary = (item: string) => {
     const current = wizard.dietaryRestrictions;
-    setWizardField(
-      'dietaryRestrictions',
-      current.includes(item) ? current.filter((d) => d !== item) : [...current, item],
-    );
+    const updated = current.includes(item) ? current.filter((d) => d !== item) : [...current, item];
+    setWizardField('dietaryRestrictions', updated);
+    saveDietary(updated); // Persist for future use
   };
 
   const addIngredient = () => {
@@ -113,14 +128,40 @@ export default function MealPlanWizardScreen() {
     }
 
     setGenerating(true);
+
+    const messages = [
+      'Understanding your preferences...',
+      'Gathering ingredients...',
+      'Crafting your meals...',
+      'Planning your week...',
+      'Building your grocery list...',
+      'Almost done...',
+    ];
+    let msgIndex = 0;
+    setLoadingMsg(messages[0]);
+    const msgInterval = setInterval(() => {
+      msgIndex = Math.min(msgIndex + 1, messages.length - 1);
+      setLoadingMsg(messages[msgIndex]);
+    }, 2500);
+
     try {
       const plan = await generateMealPlan(wizard);
+      clearInterval(msgInterval);
       addMealPlan(plan);
       incrementLifetimeMealPlans();
+      // Add meal plan grocery items to persistent grocery list
+      const { addGroceryItems } = usePantryStore.getState();
+      const groceryItems = plan.groceryList.map((g) => ({
+        name: g.name,
+        amount: g.amount,
+        group: g.group || g.category || 'OTHER',
+      }));
+      addGroceryItems(groceryItems);
       setGenerating(false);
       resetWizard();
       navigation.replace('MealPlanView', { planId: plan.id });
     } catch (err: any) {
+      clearInterval(msgInterval);
       setGenerating(false);
       Alert.alert('Generation failed', err.message || 'Could not generate meal plan. Please try again.');
     }
@@ -368,7 +409,7 @@ export default function MealPlanWizardScreen() {
             {generating ? (
               <>
                 <ActivityIndicator size="small" color={Colors.bg} />
-                <Text style={styles.generateText}>Planning your week...</Text>
+                <Text style={styles.generateText}>{loadingMsg}</Text>
               </>
             ) : (
               <>

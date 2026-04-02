@@ -34,8 +34,10 @@ export interface DayPlan {
 export interface GroceryItem {
   name: string;
   amount: string;
-  category: string;
+  category: string; // default category from AI
+  group: string;    // user-assigned group (defaults to category)
   checked: boolean;
+  isManual?: boolean; // true if manually added by user
 }
 
 export interface MealPlan {
@@ -44,6 +46,7 @@ export interface MealPlan {
   servingSize: number;
   days: DayPlan[];
   groceryList: GroceryItem[];
+  customGroups: string[]; // user-created groups like "Walmart", "Costco"
 }
 
 // --- Store ---
@@ -63,6 +66,11 @@ interface MealPlanState {
   setActivePlan: (id: string) => void;
   updateMealSlotRecipeId: (planId: string, day: string, mealType: string, recipeId: string) => void;
   toggleGroceryItem: (planId: string, index: number) => void;
+  addCustomGroup: (planId: string, groupName: string) => void;
+  removeCustomGroup: (planId: string, groupName: string) => void;
+  moveItemToGroup: (planId: string, itemIndex: number, group: string) => void;
+  addGroceryItem: (planId: string, name: string, amount: string, group: string) => void;
+  removeGroceryItem: (planId: string, index: number) => void;
   lifetimeMealPlans: number;
   incrementLifetimeMealPlans: () => void;
 }
@@ -142,6 +150,69 @@ export const useMealPlanStore = create<MealPlanState>()(persist((set, get) => ({
       ),
     })),
 
+  addCustomGroup: (planId, groupName) =>
+    set((state) => ({
+      mealPlans: state.mealPlans.map((plan) =>
+        plan.id === planId && !(plan.customGroups || []).includes(groupName)
+          ? { ...plan, customGroups: [...(plan.customGroups || []), groupName] }
+          : plan
+      ),
+    })),
+
+  removeCustomGroup: (planId, groupName) =>
+    set((state) => ({
+      mealPlans: state.mealPlans.map((plan) =>
+        plan.id === planId
+          ? {
+              ...plan,
+              customGroups: (plan.customGroups || []).filter((g) => g !== groupName),
+              // Move items back to their default category
+              groceryList: plan.groceryList.map((item) =>
+                item.group === groupName ? { ...item, group: item.category } : item
+              ),
+            }
+          : plan
+      ),
+    })),
+
+  moveItemToGroup: (planId, itemIndex, group) =>
+    set((state) => ({
+      mealPlans: state.mealPlans.map((plan) =>
+        plan.id === planId
+          ? {
+              ...plan,
+              groceryList: plan.groceryList.map((item, i) =>
+                i === itemIndex ? { ...item, group } : item
+              ),
+            }
+          : plan
+      ),
+    })),
+
+  addGroceryItem: (planId, name, amount, group) =>
+    set((state) => ({
+      mealPlans: state.mealPlans.map((plan) =>
+        plan.id === planId
+          ? {
+              ...plan,
+              groceryList: [
+                ...plan.groceryList,
+                { name, amount, category: group, group, checked: false, isManual: true },
+              ],
+            }
+          : plan
+      ),
+    })),
+
+  removeGroceryItem: (planId, index) =>
+    set((state) => ({
+      mealPlans: state.mealPlans.map((plan) =>
+        plan.id === planId
+          ? { ...plan, groceryList: plan.groceryList.filter((_, i) => i !== index) }
+          : plan
+      ),
+    })),
+
   incrementLifetimeMealPlans: () =>
     set((state) => ({ lifetimeMealPlans: state.lifetimeMealPlans + 1 })),
 }), {
@@ -152,4 +223,26 @@ export const useMealPlanStore = create<MealPlanState>()(persist((set, get) => ({
     activePlanId: state.activePlanId,
     lifetimeMealPlans: state.lifetimeMealPlans,
   }),
+  merge: (persisted: any, current) => {
+    if (!persisted) return current;
+    // Ensure old cached plans get new fields
+    const mealPlans = (persisted.mealPlans || []).map((plan: any) => ({
+      ...plan,
+      customGroups: plan.customGroups || [],
+      groceryList: (plan.groceryList || []).map((item: any) => ({
+        ...item,
+        group: item.group || item.category || 'OTHER',
+      })),
+      days: (plan.days || []).map((day: any) => ({
+        ...day,
+        meals: day.meals || [],
+      })),
+    }));
+    return {
+      ...current,
+      mealPlans,
+      activePlanId: persisted.activePlanId ?? null,
+      lifetimeMealPlans: persisted.lifetimeMealPlans ?? 0,
+    };
+  },
 }));

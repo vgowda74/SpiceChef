@@ -18,6 +18,7 @@ import { Colors, Fonts, Spacing } from '../lib/theme';
 import { useMealPlanStore } from '../store/mealPlanStore';
 import { useRecipeStore } from '../store/recipeStore';
 import { generateRecipe } from '../lib/recipeGeneratorService';
+import { generateRecipeImage } from '../lib/imageService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MealPlanView'>;
 
@@ -71,6 +72,10 @@ export default function MealPlanViewScreen({ route, navigation }: Props) {
       const recipe = await generateRecipe(description);
       addGeneratedRecipe(recipe);
       updateMealSlotRecipeId(planId, currentDay.day, mealType, recipe.id);
+      // Generate image in background
+      generateRecipeImage(recipe.id, recipe.title).then((url) => {
+        if (url) useRecipeStore.getState().setRecipeImage(recipe.id, url);
+      });
       setGeneratingMeal(null);
       navigation.navigate('IngredientChecklist', { recipeId: recipe.id });
     } catch (err: any) {
@@ -167,7 +172,7 @@ export default function MealPlanViewScreen({ route, navigation }: Props) {
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.groceryBtn}
-          onPress={() => navigation.navigate('GroceryList', { planId })}
+          onPress={() => navigation.navigate('GroceryList')}
           activeOpacity={0.85}
         >
           <Ionicons name="cart-outline" size={18} color={Colors.bg} />

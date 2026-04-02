@@ -1,0 +1,327 @@
+[
+  {
+    "id": "cb1",
+    "title": "Famous Indian Dishes",
+    "type": "cookbook"
+  },
+  {
+    "id": "cb2",
+    "title": "Italian Classics",
+    "type": "cookbook"
+  },
+  {
+    "id": "cb3",
+    "title": "Mexican Fiesta",
+    "type": "cookbook"
+  },
+  {
+    "id": "cb4",
+    "title": "Thai Kitchen",
+    "type": "cookbook"
+  },
+  {
+    "id": "cb5",
+    "title": "Chinese Favorites",
+    "type": "cookbook"
+  },
+  {
+    "id": "cb6",
+    "title": "Mediterranean Table",
+    "type": "cookbook"
+  },
+  {
+    "id": "cb7",
+    "title": "Japanese Essentials",
+    "type": "cookbook"
+  },
+  {
+    "id": "cb8",
+    "title": "French Bistro",
+    "type": "cookbook"
+  },
+  {
+    "id": "cb9",
+    "title": "Middle Eastern Mezze",
+    "type": "cookbook"
+  },
+  {
+    "id": "cb10",
+    "title": "American BBQ & Classics",
+    "type": "cookbook"
+  },
+  {
+    "id": "cb11",
+    "title": "Korean Home Cooking",
+    "type": "cookbook"
+  },
+  {
+    "id": "r1",
+    "title": "Saag Paneer",
+    "type": "recipe"
+  },
+  {
+    "id": "r2",
+    "title": "Dal Makhani",
+    "type": "recipe"
+  },
+  {
+    "id": "r3",
+    "title": "Aloo Gobi",
+    "type": "recipe"
+  },
+  {
+    "id": "r4",
+    "title": "Paneer Butter Masala",
+    "type": "recipe"
+  },
+  {
+    "id": "r5",
+    "title": "Chana Masala",
+    "type": "recipe"
+  },
+  {
+    "id": "r6",
+    "title": "Chicken Tikka Masala",
+    "type": "recipe"
+  },
+  {
+    "id": "r7",
+    "title": "Lamb Rogan Josh",
+    "type": "recipe"
+  },
+  {
+    "id": "r8",
+    "title": "Butter Chicken",
+    "type": "recipe"
+  },
+  {
+    "id": "r9",
+    "title": "Prawn Masala",
+    "type": "recipe"
+  },
+  {
+    "id": "r10",
+    "title": "Chicken Biryani",
+    "type": "recipe"
+  },
+  {
+    "id": "it1",
+    "title": "Spaghetti Carbonara",
+    "type": "recipe"
+  },
+  {
+    "id": "it2",
+    "title": "Margherita Pizza",
+    "type": "recipe"
+  },
+  {
+    "id": "it3",
+    "title": "Pasta Bolognese",
+    "type": "recipe"
+  },
+  {
+    "id": "it4",
+    "title": "Mushroom Risotto",
+    "type": "recipe"
+  },
+  {
+    "id": "it5",
+    "title": "Chicken Piccata",
+    "type": "recipe"
+  },
+  {
+    "id": "it6",
+    "title": "Eggplant Parmigiana",
+    "type": "recipe"
+  },
+  {
+    "id": "mx1",
+    "title": "Chicken Tacos",
+    "type": "recipe"
+  },
+  {
+    "id": "mx2",
+    "title": "Bean & Cheese Quesadillas",
+    "type": "recipe"
+  },
+  {
+    "id": "mx3",
+    "title": "Beef Enchiladas",
+    "type": "recipe"
+  },
+  {
+    "id": "mx4",
+    "title": "Guacamole",
+    "type": "recipe"
+  },
+  {
+    "id": "mx5",
+    "title": "Veggie Fajitas",
+    "type": "recipe"
+  },
+  {
+    "id": "th1",
+    "title": "Pad Thai with Prawns",
+    "type": "recipe"
+  },
+  {
+    "id": "th2",
+    "title": "Green Curry Chicken",
+    "type": "recipe"
+  },
+  {
+    "id": "th3",
+    "title": "Mango Sticky Rice",
+    "type": "recipe"
+  },
+  {
+    "id": "th4",
+    "title": "Thai Basil Chicken",
+    "type": "recipe"
+  },
+  {
+    "id": "cn1",
+    "title": "Kung Pao Chicken",
+    "type": "recipe"
+  },
+  {
+    "id": "cn2",
+    "title": "Vegetable Fried Rice",
+    "type": "recipe"
+  },
+  {
+    "id": "cn3",
+    "title": "Beef & Broccoli",
+    "type": "recipe"
+  },
+  {
+    "id": "cn4",
+    "title": "Mapo Tofu",
+    "type": "recipe"
+  },
+  {
+    "id": "mx6",
+    "title": "Pork Carnitas",
+    "type": "recipe"
+  },
+  {
+    "id": "med1",
+    "title": "Shakshuka",
+    "type": "recipe"
+  },
+  {
+    "id": "med2",
+    "title": "Grilled Chicken Souvlaki",
+    "type": "recipe"
+  },
+  {
+    "id": "med3",
+    "title": "Falafel",
+    "type": "recipe"
+  },
+  {
+    "id": "med4",
+    "title": "Lamb Kofta",
+    "type": "recipe"
+  },
+  {
+    "id": "jp1",
+    "title": "Chicken Teriyaki",
+    "type": "recipe"
+  },
+  {
+    "id": "jp2",
+    "title": "Miso Soup",
+    "type": "recipe"
+  },
+  {
+    "id": "jp3",
+    "title": "Gyoza Dumplings",
+    "type": "recipe"
+  },
+  {
+    "id": "fr1",
+    "title": "French Onion Soup",
+    "type": "recipe"
+  },
+  {
+    "id": "fr2",
+    "title": "Coq au Vin",
+    "type": "recipe"
+  },
+  {
+    "id": "fr3",
+    "title": "Ratatouille",
+    "type": "recipe"
+  },
+  {
+    "id": "fr4",
+    "title": "Beef Bourguignon",
+    "type": "recipe"
+  },
+  {
+    "id": "me1",
+    "title": "Hummus",
+    "type": "recipe"
+  },
+  {
+    "id": "me2",
+    "title": "Chicken Shawarma",
+    "type": "recipe"
+  },
+  {
+    "id": "me3",
+    "title": "Lentil Soup",
+    "type": "recipe"
+  },
+  {
+    "id": "me4",
+    "title": "Lamb Kebabs",
+    "type": "recipe"
+  },
+  {
+    "id": "bbq1",
+    "title": "Smoked BBQ Ribs",
+    "type": "recipe"
+  },
+  {
+    "id": "bbq2",
+    "title": "Classic Cheeseburger",
+    "type": "recipe"
+  },
+  {
+    "id": "bbq3",
+    "title": "Mac and Cheese",
+    "type": "recipe"
+  },
+  {
+    "id": "bbq4",
+    "title": "BBQ Pulled Pork",
+    "type": "recipe"
+  },
+  {
+    "id": "kr1",
+    "title": "Bibimbap",
+    "type": "recipe"
+  },
+  {
+    "id": "kr2",
+    "title": "Kimchi Fried Rice",
+    "type": "recipe"
+  },
+  {
+    "id": "kr3",
+    "title": "Korean Fried Chicken",
+    "type": "recipe"
+  },
+  {
+    "id": "kr4",
+    "title": "Doenjang Jjigae (Soybean Stew)",
+    "type": "recipe"
+  },
+  {
+    "id": "jp4",
+    "title": "Vegetable Ramen",
+    "type": "recipe"
+  }
+]

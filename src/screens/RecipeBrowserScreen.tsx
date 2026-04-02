@@ -10,6 +10,9 @@ import {
   ScrollView,
   Modal,
   Alert,
+  Image,
+  ImageBackground,
+  Dimensions,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +20,7 @@ import { RootStackParamList } from '../../App';
 import { Colors, Fonts, Spacing } from '../lib/theme';
 import { useRecipeStore, Recipe } from '../store/recipeStore';
 import { MY_RECIPES_COOKBOOK_ID } from '../lib/recipeGeneratorService';
+import { usePantryStore } from '../store/pantryStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RecipeBrowser'>;
 
@@ -182,17 +186,46 @@ function applyPantryFilter(recipes: Recipe[], pantry: Set<string>): Recipe[] {
   });
 }
 
-// --- Recipe row ---
-function RecipeRow({ recipe, onPress, onLongPress }: { recipe: Recipe; onPress: () => void; onLongPress?: () => void }) {
+const R_CARD_GAP = Spacing.md;
+const R_CARD_WIDTH = (Dimensions.get('window').width - Spacing.lg * 2 - R_CARD_GAP) / 2;
+
+// --- Recipe card ---
+function RecipeCard({ recipe, onPress, onLongPress }: { recipe: Recipe; onPress: () => void; onLongPress?: () => void }) {
   const isVeg = recipe.tags.includes('Vegetarian');
-  return (
-    <TouchableOpacity style={styles.recipeRow} onPress={onPress} onLongPress={onLongPress} activeOpacity={0.8}>
-      <View style={[styles.recipeDot, { backgroundColor: isVeg ? '#4A8C3A' : '#C87840' }]} />
-      <View style={styles.recipeInfo}>
-        <Text style={styles.recipeTitle}>{recipe.title}</Text>
-        <Text style={styles.recipeMeta}>{recipe.tags.join(' · ')}</Text>
+  const dotColor = isVeg ? '#4A8C3A' : '#C87840';
+
+  const content = (
+    <View style={styles.rcCardOverlay}>
+      <View style={styles.rcCardBottom}>
+        <Text style={styles.rcCardTitle} numberOfLines={2}>{recipe.title}</Text>
+        <View style={styles.rcCardMetaRow}>
+          <View style={[styles.rcDot, { backgroundColor: dotColor }]} />
+          <Text style={styles.rcCardMeta} numberOfLines={1}>{recipe.duration_mins} min</Text>
+        </View>
       </View>
-      <Text style={styles.recipeDuration}>{recipe.duration_mins} min</Text>
+    </View>
+  );
+
+  return (
+    <TouchableOpacity
+      style={styles.rcCard}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      activeOpacity={0.8}
+    >
+      {recipe.image_url ? (
+        <ImageBackground
+          source={{ uri: recipe.image_url }}
+          style={styles.rcCardBg}
+          imageStyle={styles.rcCardBgImage}
+        >
+          {content}
+        </ImageBackground>
+      ) : (
+        <View style={[styles.rcCardBg, { backgroundColor: Colors.surface }]}>
+          {content}
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -203,12 +236,12 @@ export default function RecipeBrowserScreen({ route, navigation }: Props) {
   const isMyRecipes = cookbookId === MY_RECIPES_COOKBOOK_ID;
   const canDeleteRecipes = isMyRecipes || isUploadedCookbook(cookbookId);
 
-  const [activeFilter, setActiveFilter] = useState('All');
   const [showModal, setShowModal] = useState(!isMyRecipes);
-  const [modalStep, setModalStep] = useState<1 | 2>(1);
 
-  const [selectedDietary, setSelectedDietary] = useState<Set<string>>(new Set());
-  const [selectedPantry, setSelectedPantry] = useState<Set<string>>(new Set());
+  const { dietaryRestrictions: savedDietary, setDietaryRestrictions: saveDietary, getPantryNames } = usePantryStore();
+  const [selectedDietary, setSelectedDietary] = useState<Set<string>>(new Set(savedDietary));
+  const [usePantryFilter, setUsePantryFilter] = useState(false);
+  const pantryNames = useMemo(() => getPantryNames().map((n) => n.toLowerCase()), []);
 
   const cookbook = getCookbook(cookbookId);
   const allRecipes = getRecipesByCookbook(cookbookId);
@@ -217,14 +250,7 @@ export default function RecipeBrowserScreen({ route, navigation }: Props) {
     setSelectedDietary((prev) => {
       const next = new Set(prev);
       next.has(value) ? next.delete(value) : next.add(value);
-      return next;
-    });
-  };
-
-  const togglePantry = (id: string) => {
-    setSelectedPantry((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      saveDietary(Array.from(next)); // Persist
       return next;
     });
   };
@@ -237,20 +263,25 @@ export default function RecipeBrowserScreen({ route, navigation }: Props) {
   const filteredRecipes = useMemo(() => {
     let base = allRecipes;
 
-    // Chip filter
-    if (activeFilter === 'Under 30 min') base = base.filter((r) => r.duration_mins <= 30);
-    else if (activeFilter === 'Vegetarian') base = base.filter((r) => r.tags.includes('Vegetarian'));
-    else if (activeFilter === 'Non-Veg') base = base.filter((r) => r.tags.includes('Non-Veg'));
-
-    // Dietary & pantry filters from prefs modal
+    // Dietary filter
     base = applyDietaryFilter(base, selectedDietary);
-    base = applyPantryFilter(base, selectedPantry);
+
+    // Pantry filter — only show recipes where most ingredients are in pantry
+    if (usePantryFilter && pantryNames.length > 0) {
+      base = base.filter((recipe) => {
+        const matchCount = recipe.ingredients.filter((ing) =>
+          pantryNames.some((p) => ing.name.toLowerCase().includes(p) || p.includes(ing.name.toLowerCase()))
+        ).length;
+        // Show recipe if user has at least 60% of ingredients
+        return matchCount >= recipe.ingredients.length * 0.6;
+      });
+    }
 
     // Newest first for "My Recipes" (IDs are `my_<timestamp>`)
     if (isMyRecipes) base = [...base].reverse();
 
     return base;
-  }, [allRecipes, activeFilter, selectedDietary, selectedPantry, isMyRecipes]);
+  }, [allRecipes, selectedDietary, usePantryFilter, pantryNames, isMyRecipes]);
 
   const renderHeader = () => (
     <View style={styles.header}>
@@ -270,34 +301,23 @@ export default function RecipeBrowserScreen({ route, navigation }: Props) {
           <Text style={styles.cookbookAuthor}>{cookbook?.author ?? ''}</Text>
           <Text style={styles.cookbookStats}>{allRecipes.length} recipes</Text>
         </View>
-        <TouchableOpacity onPress={() => { setModalStep(1); setShowModal(true); }} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => setShowModal(true)} activeOpacity={0.7}>
           <Ionicons name="options-outline" size={22} color={Colors.muted} />
         </TouchableOpacity>
       </View>
 
       {/* Active prefs summary */}
-      {(selectedDietary.size > 0 || selectedPantry.size > 0) && (
+      {(selectedDietary.size > 0 || usePantryFilter) && (
         <View style={styles.prefsBadge}>
           <Ionicons name="funnel-outline" size={13} color={Colors.accent} />
           <Text style={styles.prefsBadgeText}>
-            {[selectedDietary.size > 0 && `${selectedDietary.size} dietary`, selectedPantry.size > 0 && `${selectedPantry.size} ingredients`].filter(Boolean).join(' · ')}
+            {[selectedDietary.size > 0 && `${selectedDietary.size} dietary`, usePantryFilter && 'Pantry filter on'].filter(Boolean).join(' · ')}
           </Text>
-          <TouchableOpacity onPress={() => { setSelectedDietary(new Set()); setSelectedPantry(new Set()); }} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => { setSelectedDietary(new Set()); setUsePantryFilter(false); saveDietary([]); }} activeOpacity={0.7}>
             <Text style={styles.prefsClear}>Clear</Text>
           </TouchableOpacity>
         </View>
       )}
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterRow}>
-        {FILTERS.map((filter) => {
-          const isActive = activeFilter === filter;
-          return (
-            <TouchableOpacity key={filter} style={[styles.filterChip, isActive && styles.filterChipActive]} onPress={() => setActiveFilter(filter)} activeOpacity={0.7}>
-              <Text style={[styles.filterText, isActive && styles.filterTextActive]}>{filter}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
 
       <Text style={styles.recipeCount}>{filteredRecipes.length} RECIPES FOUND</Text>
 
@@ -318,12 +338,13 @@ export default function RecipeBrowserScreen({ route, navigation }: Props) {
       <FlatList
         data={filteredRecipes}
         keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={styles.rcGridRow}
         ListHeaderComponent={renderHeader}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         renderItem={({ item }) => (
-          <RecipeRow
+          <RecipeCard
             recipe={item}
             onPress={() => navigation.navigate('IngredientChecklist', { recipeId: item.id })}
             onLongPress={canDeleteRecipes ? () => {
@@ -340,94 +361,60 @@ export default function RecipeBrowserScreen({ route, navigation }: Props) {
         )}
       />
 
-      {/* Prefs modal */}
+      {/* Preferences modal — single screen */}
       <Modal visible={showModal} transparent animationType="slide">
         <View style={styles.modalBg}>
           <SafeAreaView style={styles.modalSheet}>
-            {/* Step header */}
             <View style={styles.modalTopBar}>
-              <View style={styles.stepDots}>
-                <View style={[styles.stepDot, modalStep === 1 && styles.stepDotActive]} />
-                <View style={[styles.stepDot, modalStep === 2 && styles.stepDotActive]} />
-              </View>
+              <Text style={styles.modalHeading}>Your Preferences</Text>
               <TouchableOpacity onPress={handleShowRecipes} activeOpacity={0.7}>
-                <Text style={styles.skipLabel}>Skip</Text>
+                <Text style={styles.skipLabel}>Skip All</Text>
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent}>
-              {modalStep === 1 ? (
-                <>
-                  <Text style={styles.modalHeading}>{cookbook?.title}</Text>
-                  <Text style={styles.modalSub}>Any dietary needs? Select all that apply.</Text>
-
-                  <View style={styles.chipGrid}>
-                    {DIETARY_OPTIONS.map((opt) => {
-                      const isActive = selectedDietary.has(opt.value);
-                      return (
-                        <TouchableOpacity
-                          key={opt.value}
-                          style={[styles.chip, isActive && styles.chipActive]}
-                          onPress={() => toggleDietary(opt.value)}
-                          activeOpacity={0.75}
-                        >
-                          <Text style={styles.chipEmoji}>{opt.emoji}</Text>
-                          <Text style={[styles.chipLabel, isActive && styles.chipLabelActive]}>{opt.label}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                    {/* None option */}
+              <Text style={styles.modalSub}>Dietary restrictions</Text>
+              <View style={styles.chipGrid}>
+                {DIETARY_OPTIONS.map((opt) => {
+                  const isActive = selectedDietary.has(opt.value);
+                  return (
                     <TouchableOpacity
-                      style={[styles.chip, styles.chipWide, selectedDietary.size === 0 && styles.chipActive]}
-                      onPress={() => setSelectedDietary(new Set())}
+                      key={opt.value}
+                      style={[styles.chip, isActive && styles.chipActive]}
+                      onPress={() => toggleDietary(opt.value)}
                       activeOpacity={0.75}
                     >
-                      <Text style={[styles.chipLabel, selectedDietary.size === 0 && styles.chipLabelActive]}>No restrictions</Text>
+                      <Text style={styles.chipEmoji}>{opt.emoji}</Text>
+                      <Text style={[styles.chipLabel, isActive && styles.chipLabelActive]}>{opt.label}</Text>
                     </TouchableOpacity>
-                  </View>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.modalHeading}>What's in your kitchen?</Text>
-                  <Text style={styles.modalSub}>Select ingredients you have. We'll show recipes you can make.</Text>
+                  );
+                })}
+              </View>
 
-                  {PANTRY_GROUPS.map((group) => (
-                    <View key={group.group} style={styles.pantryGroup}>
-                      <Text style={styles.pantryGroupLabel}>{group.group.toUpperCase()}</Text>
-                      <View style={styles.chipGrid}>
-                        {group.items.map((item) => {
-                          const isActive = selectedPantry.has(item.id);
-                          return (
-                            <TouchableOpacity
-                              key={item.id}
-                              style={[styles.chip, isActive && styles.chipActive]}
-                              onPress={() => togglePantry(item.id)}
-                              activeOpacity={0.75}
-                            >
-                              <Text style={[styles.chipLabel, isActive && styles.chipLabelActive]}>{item.label}</Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    </View>
-                  ))}
-                </>
+              {pantryNames.length > 0 && (
+                <TouchableOpacity
+                  style={[styles.pantryToggle, usePantryFilter && styles.pantryToggleActive]}
+                  onPress={() => setUsePantryFilter(!usePantryFilter)}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons
+                    name={usePantryFilter ? 'checkbox' : 'square-outline'}
+                    size={22}
+                    color={usePantryFilter ? Colors.accent : Colors.muted}
+                  />
+                  <View style={styles.pantryToggleText}>
+                    <Text style={styles.pantryToggleLabel}>Only recipes I can make with my pantry</Text>
+                    <Text style={styles.pantryToggleHint}>{pantryNames.length} items in your pantry</Text>
+                  </View>
+                </TouchableOpacity>
               )}
             </ScrollView>
 
-            {/* Footer CTA */}
             <View style={styles.modalFooter}>
-              {modalStep === 1 ? (
-                <TouchableOpacity style={styles.cta} onPress={() => setModalStep(2)} activeOpacity={0.85}>
-                  <Text style={styles.ctaText}>Next — What's in your kitchen?</Text>
-                  <Ionicons name="arrow-forward" size={18} color={Colors.bg} />
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity style={styles.cta} onPress={handleShowRecipes} activeOpacity={0.85}>
-                  <Ionicons name="checkmark" size={18} color={Colors.bg} />
-                  <Text style={styles.ctaText}>Show My Recipes</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity style={styles.cta} onPress={handleShowRecipes} activeOpacity={0.85}>
+                <Ionicons name="checkmark" size={18} color={Colors.bg} />
+                <Text style={styles.ctaText}>Apply</Text>
+              </TouchableOpacity>
             </View>
           </SafeAreaView>
         </View>
@@ -471,16 +458,54 @@ const styles = StyleSheet.create({
   filterText: { fontFamily: Fonts.body, fontSize: 13, color: Colors.muted },
   filterTextActive: { color: Colors.bg, fontFamily: Fonts.bodySemiBold },
   recipeCount: { fontFamily: Fonts.body, fontSize: 11, color: Colors.muted, letterSpacing: 1.2, marginBottom: Spacing.md },
-  recipeRow: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface,
-    borderRadius: 14, borderWidth: 1, borderColor: Colors.border,
-    padding: Spacing.md, gap: Spacing.md,
+  rcGridRow: {
+    justifyContent: 'space-between',
+    marginBottom: R_CARD_GAP,
   },
-  recipeDot: { width: 10, height: 10, borderRadius: 5 },
-  recipeInfo: { flex: 1, gap: 3 },
-  recipeTitle: { fontFamily: Fonts.bodySemiBold, fontSize: 16, color: Colors.text },
-  recipeMeta: { fontFamily: Fonts.body, fontSize: 12, color: Colors.muted },
-  recipeDuration: { fontFamily: Fonts.body, fontSize: 13, color: Colors.muted },
+  rcCard: {
+    width: R_CARD_WIDTH,
+    height: R_CARD_WIDTH * 1.2,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: '#3A4A3A',
+    shadowColor: '#000',
+    shadowOffset: { width: 1, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  rcCardBg: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  rcCardBgImage: {
+    borderRadius: 14,
+  },
+  rcCardOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    padding: Spacing.sm + 2,
+  },
+  rcCardBottom: {
+    backgroundColor: 'rgba(11,22,16,0.85)',
+    borderRadius: 10,
+    padding: Spacing.sm,
+    gap: 4,
+  },
+  rcCardTitle: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: Colors.text,
+    lineHeight: 17,
+  },
+  rcCardMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  rcDot: { width: 8, height: 8, borderRadius: 4 },
+  rcCardMeta: { fontFamily: Fonts.body, fontSize: 11, color: Colors.muted },
   emptyBox: { alignItems: 'center', paddingTop: Spacing.xxl, gap: Spacing.md },
   emptyTitle: { fontFamily: Fonts.heading, fontSize: 22, color: Colors.muted },
   emptySub: { fontFamily: Fonts.body, fontSize: 14, color: Colors.muted, textAlign: 'center', lineHeight: 22 },
@@ -494,9 +519,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, paddingBottom: Spacing.sm,
   },
-  stepDots: { flexDirection: 'row', gap: 6 },
-  stepDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.border },
-  stepDotActive: { backgroundColor: Colors.accent, width: 20 },
   skipLabel: { fontFamily: Fonts.body, fontSize: 14, color: Colors.muted },
   modalScroll: { flex: 0 },
   modalScrollContent: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.lg },
@@ -513,6 +535,21 @@ const styles = StyleSheet.create({
   chipEmoji: { fontSize: 15 },
   chipLabel: { fontFamily: Fonts.body, fontSize: 13, color: Colors.muted },
   chipLabelActive: { color: Colors.accent, fontFamily: Fonts.bodySemiBold },
+  pantryToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    marginTop: Spacing.lg,
+  },
+  pantryToggleActive: { borderColor: Colors.accent },
+  pantryToggleText: { flex: 1, gap: 2 },
+  pantryToggleLabel: { fontFamily: Fonts.bodySemiBold, fontSize: 14, color: Colors.text },
+  pantryToggleHint: { fontFamily: Fonts.body, fontSize: 12, color: Colors.muted },
   pantryGroup: { marginBottom: Spacing.lg },
   pantryGroupLabel: {
     fontFamily: Fonts.body, fontSize: 11, color: Colors.muted,

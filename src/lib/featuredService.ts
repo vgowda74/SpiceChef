@@ -49,6 +49,7 @@ export async function fetchFeaturedCookbooks(): Promise<{
       accent_color: ACCENT_PALETTE[idx % ACCENT_PALETTE.length],
       recipe_count: cb.recipe_count || 0,
       created_at: cb.created_at,
+      image_url: cb.cover_url || undefined,
     }));
 
     const recipes: Recipe[] = (recipeRows || []).map((r: any) => ({
@@ -60,6 +61,7 @@ export async function fetchFeaturedCookbooks(): Promise<{
       base_serves: r.base_serves || 4,
       tags: r.tags || [],
       duration_mins: r.duration_mins || 0,
+      image_url: r.image_url || undefined,
     }));
 
     return { cookbooks, recipes };

@@ -28,6 +28,16 @@ const FEATURES = [
     description: 'Describe any dish you have in mind and AI generates a complete recipe with ingredients and step-by-step instructions.',
   },
   {
+    icon: 'calendar-outline' as const,
+    title: 'Meal Planner',
+    description: 'Plan your entire week in seconds. Pick your meals, set dietary preferences, and get a complete 7-day plan.',
+  },
+  {
+    icon: 'cart-outline' as const,
+    title: 'Smart Grocery List',
+    description: 'Auto-generated shopping list from your meal plan — grouped by category, no duplicates, excludes what you already have.',
+  },
+  {
     icon: 'flame-outline' as const,
     title: 'Cook Step-by-Step',
     description: 'Follow guided cook mode with built-in timers, ingredient checklists, and auto-scaled serving quantities.',

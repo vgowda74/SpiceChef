@@ -22,6 +22,7 @@ import { useRecipeStore } from '../store/recipeStore';
 import { generateRecipe, MY_RECIPES_COOKBOOK_ID } from '../lib/recipeGeneratorService';
 import { getLimits } from '../lib/cookbookService';
 import { usePurchaseStore } from '../store/purchaseStore';
+import { generateRecipeImage } from '../lib/imageService';
 
 const SAMPLE_PROMPT =
   'A creamy vegetarian curry with paneer and spinach — no nuts, gluten-free. Serves 2, under 30 minutes. I have coconut milk, onions, and garam masala.';
@@ -74,6 +75,10 @@ export default function AddRecipeScreen() {
     try {
       const recipe = await generateRecipe(prompt);
       addGeneratedRecipe(recipe);
+      // Generate image in background — don't block navigation
+      generateRecipeImage(recipe.id, recipe.title).then((url) => {
+        if (url) useRecipeStore.getState().setRecipeImage(recipe.id, url);
+      });
       setGenerating(false);
       navigation.navigate('RecipeBrowser', { cookbookId: MY_RECIPES_COOKBOOK_ID });
     } catch (err: any) {

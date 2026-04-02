@@ -6,18 +6,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const SYSTEM_PROMPT = `You are a professional meal planner and chef. Given the user's preferences, create a 7-day meal plan. Return a single JSON object (no markdown, no code fences) with this exact shape:
+const SYSTEM_PROMPT = `You are a professional meal planner. Create a 7-day meal plan as JSON (no markdown, no code fences):
 {
   "plan": [
     {
       "day": "Monday",
       "meals": [
-        {
-          "mealType": "breakfast",
-          "title": "Recipe Name",
-          "description": "1-2 sentence description of the dish",
-          "duration_mins": 15
-        }
+        { "mealType": "breakfast", "title": "Recipe Name", "description": "Brief one-line description", "duration_mins": 15 }
       ]
     }
   ],
@@ -27,15 +22,14 @@ const SYSTEM_PROMPT = `You are a professional meal planner and chef. Given the u
 }
 
 Rules:
-- Include meals ONLY for the meal types the user selected
-- If planMode is "same", use the same meals every day (but vary within a day). If "varied", different meals each day.
-- category must be one of: PRODUCE, DAIRY, PROTEIN, SPICES, PANTRY, DRINKS
-- grocery_list should be aggregated across all 7 days — combine duplicate ingredients and sum quantities
-- If the user listed ingredients they already have, EXCLUDE those from the grocery_list
-- Respect all dietary restrictions strictly
-- For drinks: suggest specific recipes (e.g. "Masala Chai" not just "Tea")
-- Make meals practical — consider prep time, variety of cuisines, and seasonal ingredients
-- Ensure nutritional balance across the day (protein + carbs + vegetables)
+- Include meals ONLY for the selected meal types
+- If planMode is "same", repeat the same meals daily. If "varied", different meals each day.
+- Keep descriptions SHORT — max 10 words each
+- category: PRODUCE, DAIRY, PROTEIN, SPICES, PANTRY, or DRINKS
+- grocery_list: aggregated across all 7 days, duplicates combined, quantities summed
+- EXCLUDE ingredients the user already has from grocery_list
+- Respect dietary restrictions strictly
+- For drinks: use specific names (e.g. "Masala Chai" not "Tea")
 - Scale all quantities for the specified serving size
 - Return ONLY the JSON object, nothing else`;
 
@@ -99,7 +93,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4096,
+        max_tokens: 8192,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userPrompt }],
       }),

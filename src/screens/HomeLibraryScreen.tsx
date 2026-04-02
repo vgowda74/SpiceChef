@@ -10,6 +10,9 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
+  Image,
+  ImageBackground,
+  Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -20,6 +23,7 @@ import { Colors, Fonts, Spacing } from '../lib/theme';
 import { useRecipeStore, Cookbook } from '../store/recipeStore';
 import { uploadAndParseCookbook, getLimits } from '../lib/cookbookService';
 import { maybeRequestReview } from '../lib/reviewService';
+import { generateRecipeImage } from '../lib/imageService';
 import { usePurchaseStore } from '../store/purchaseStore';
 import { MY_RECIPES_COOKBOOK_ID } from '../lib/recipeGeneratorService';
 import { useMealPlanStore } from '../store/mealPlanStore';
@@ -41,7 +45,10 @@ function getCookbookEmoji(title: string): string {
   return '📖';
 }
 
-function CookbookRow({
+const CARD_GAP = Spacing.md;
+const CARD_WIDTH = (Dimensions.get('window').width - Spacing.lg * 2 - CARD_GAP) / 2;
+
+function CookbookCard({
   cookbook,
   onPress,
   onLongPress,
@@ -52,40 +59,46 @@ function CookbookRow({
   onLongPress: () => void;
   isNew?: boolean;
 }) {
+  const content = (
+    <View style={styles.cardOverlay}>
+      {isNew && (
+        <View style={styles.newBadge}>
+          <Text style={styles.newBadgeText}>NEW</Text>
+        </View>
+      )}
+      {cookbook.loading && (
+        <ActivityIndicator size="small" color={Colors.accent} style={{ position: 'absolute', top: '40%', alignSelf: 'center' }} />
+      )}
+      <View style={styles.cardBottom}>
+        <Text style={styles.cardTitle} numberOfLines={2}>{cookbook.title}</Text>
+        <Text style={styles.cardMeta} numberOfLines={1}>
+          {cookbook.loading ? 'Reading…' : `${cookbook.author} · ${cookbook.recipe_count} recipes`}
+        </Text>
+      </View>
+    </View>
+  );
+
   return (
     <TouchableOpacity
-      style={[styles.cookbookRow, cookbook.loading && styles.cookbookRowLoading]}
+      style={styles.card}
       onPress={cookbook.loading ? undefined : onPress}
       onLongPress={cookbook.loading ? undefined : onLongPress}
       activeOpacity={cookbook.loading ? 1 : 0.8}
     >
-      <View style={[styles.cookbookIcon, { backgroundColor: cookbook.accent_color }]}>
-        {cookbook.loading
-          ? <ActivityIndicator size="small" color={Colors.accent} />
-          : <Text style={styles.cookbookEmoji}>{getCookbookEmoji(cookbook.title)}</Text>
-        }
-      </View>
-      <View style={styles.cookbookInfo}>
-        <View style={styles.cookbookTitleRow}>
-          <Text style={styles.cookbookTitle} numberOfLines={1}>{cookbook.title}</Text>
-          {isNew && (
-            <View style={styles.newBadge}>
-              <Text style={styles.newBadgeText}>NEW</Text>
-            </View>
-          )}
+      {cookbook.image_url ? (
+        <ImageBackground
+          source={{ uri: cookbook.image_url }}
+          style={styles.cardBg}
+          imageStyle={styles.cardBgImage}
+        >
+          {content}
+        </ImageBackground>
+      ) : (
+        <View style={[styles.cardBg, { backgroundColor: cookbook.accent_color }]}>
+          <Text style={styles.cardEmoji}>{getCookbookEmoji(cookbook.title)}</Text>
+          {content}
         </View>
-        <Text style={styles.cookbookMeta}>
-          {cookbook.loading ? 'Reading your cookbook…' : `${cookbook.author} · ${cookbook.recipe_count} recipes found`}
-        </Text>
-      </View>
-      {cookbook.loading
-        ? <ActivityIndicator size="small" color={Colors.muted} style={{ marginRight: 4 }} />
-        : (
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>{cookbook.recipe_count}</Text>
-          </View>
-        )
-      }
+      )}
     </TouchableOpacity>
   );
 }
@@ -165,6 +178,15 @@ export default function HomeLibraryScreen() {
         uploadAndParseCookbook(file.uri, file.name).then(({ cookbook, recipes }) => {
           resolvePendingCookbook(pendingId, cookbook, recipes);
           maybeRequestReview();
+          // Generate images for cookbook and recipes in background
+          generateRecipeImage(cookbook.id, cookbook.title, 'cookbook').then((url) => {
+            if (url) useRecipeStore.getState().setCookbookImage(cookbook.id, url);
+          });
+          recipes.forEach((r) => {
+            generateRecipeImage(r.id, r.title).then((url) => {
+              if (url) useRecipeStore.getState().setRecipeImage(r.id, url);
+            });
+          });
         }).catch((err: any) => {
           rejectPendingCookbook(pendingId);
           Alert.alert(
@@ -267,21 +289,15 @@ export default function HomeLibraryScreen() {
 
         <TouchableOpacity
           style={[styles.actionBtn, styles.actionBtnGrocery]}
-          onPress={() => {
-            if (mealPlans.length > 0) {
-              navigation.navigate('GroceryList', { planId: mealPlans[0].id });
-            } else {
-              Alert.alert('No meal plan', 'Create a meal plan first to get a grocery list.');
-            }
-          }}
+          onPress={() => navigation.navigate('GroceryList')}
           activeOpacity={0.75}
         >
           <View style={styles.actionIcon}>
             <Ionicons name="cart-outline" size={20} color={Colors.accent} />
           </View>
           <View style={styles.actionText}>
-            <Text style={styles.actionLabel}>Grocery List</Text>
-            <Text style={styles.actionSub}>From meal plan</Text>
+            <Text style={styles.actionLabel}>Grocery & Pantry</Text>
+            <Text style={styles.actionSub}>Shopping list</Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -348,13 +364,14 @@ export default function HomeLibraryScreen() {
       <FlatList
         data={filteredCookbooks}
         keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={styles.gridRow}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         renderItem={({ item }) => (
-          <CookbookRow
+          <CookbookCard
             cookbook={item}
             onPress={() => navigation.navigate('RecipeBrowser', { cookbookId: item.id })}
             onLongPress={() => {
@@ -490,73 +507,81 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.muted,
   },
-  cookbookRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-    gap: Spacing.md,
+  gridRow: {
+    justifyContent: 'space-between',
+    marginBottom: CARD_GAP,
   },
-  cookbookRowLoading: {
-    opacity: 0.6,
+  card: {
+    width: CARD_WIDTH,
+    height: CARD_WIDTH * 1.4,
+    borderRadius: 6,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#3A4A3A',
+    // Magazine shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  cardBg: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  cardBgImage: {
+    borderRadius: 4,
+  },
+  cardEmoji: {
+    position: 'absolute',
+    top: '28%',
+    alignSelf: 'center',
+    fontSize: 40,
+  },
+  cardOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  cardBottom: {
+    backgroundColor: 'rgba(11,22,16,0.88)',
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: Spacing.sm,
+    gap: 2,
+    // No border radius — flush with card bottom for magazine feel
+  },
+  cardTitle: {
+    fontFamily: Fonts.heading,
+    fontSize: 15,
+    color: Colors.text,
+    lineHeight: 19,
+  },
+  cardMeta: {
+    fontFamily: Fonts.body,
+    fontSize: 10,
+    color: Colors.accent,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   cookbookIcon: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  cookbookEmoji: {
-    fontSize: 22,
-  },
-  cookbookInfo: {
-    flex: 1,
-    gap: 3,
-  },
-  cookbookTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  cookbookTitle: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 16,
-    color: Colors.text,
-    flexShrink: 1,
   },
   newBadge: {
     backgroundColor: Colors.accent,
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
+    alignSelf: 'flex-start',
+    marginBottom: 4,
   },
   newBadgeText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 9,
     color: Colors.bg,
     letterSpacing: 0.8,
-  },
-  cookbookMeta: {
-    fontFamily: Fonts.body,
-    fontSize: 12,
-    color: Colors.muted,
-  },
-  countBadge: {
-    backgroundColor: '#2A3B1E',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: '#3D5228',
-  },
-  countBadgeText: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 13,
-    color: Colors.accent,
   },
   empty: {
     alignItems: 'center',

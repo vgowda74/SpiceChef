@@ -52,7 +52,7 @@ export type RootStackParamList = {
   Upgrade: undefined;
   MealPlanWizard: undefined;
   MealPlanView: { planId: string };
-  GroceryList: { planId: string };
+  GroceryList: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();

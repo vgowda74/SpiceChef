@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   StatusBar,
   Linking,
+  Image,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +17,8 @@ import { Colors, Fonts, Spacing } from '../lib/theme';
 import { useRecipeStore } from '../store/recipeStore';
 import { useOnboardingStore } from '../store/onboardingStore';
 import { useCookStore } from '../store/cookStore';
+import { usePantryStore } from '../store/pantryStore';
+import { Alert } from 'react-native';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IngredientChecklist'>;
 
@@ -45,11 +48,23 @@ export default function IngredientChecklistScreen({ route, navigation }: Props) 
   const { getRecipe, getCookbook } = useRecipeStore();
   const { serves: defaultServes } = useOnboardingStore();
   const { startSession } = useCookStore();
+  const { getPantryNames, addGroceryItem: addToGrocery } = usePantryStore();
 
   const recipe = getRecipe(recipeId);
   const cookbook = recipe ? getCookbook(recipe.cookbook_id) : undefined;
+  const pantryNames = useMemo(() => new Set(getPantryNames().map((n) => n.toLowerCase())), []);
   const [serves, setServes] = useState(defaultServes);
-  const [checked, setChecked] = useState<Set<number>>(new Set());
+  const [checked, setChecked] = useState<Set<number>>(() => {
+    // Auto-check ingredients that are in the pantry
+    if (!recipe) return new Set<number>();
+    const autoChecked = new Set<number>();
+    recipe.ingredients.forEach((ing, idx) => {
+      if (pantryNames.has(ing.name.toLowerCase())) {
+        autoChecked.add(idx);
+      }
+    });
+    return autoChecked;
+  });
   const [activeTab, setActiveTab] = useState<TabName>('Ingredients');
 
   if (!recipe) {
@@ -108,6 +123,9 @@ export default function IngredientChecklistScreen({ route, navigation }: Props) 
         showsVerticalScrollIndicator={false}
       >
         {/* Recipe title & meta */}
+        {recipe.image_url && (
+          <Image source={{ uri: recipe.image_url }} style={styles.heroImage} />
+        )}
         <Text style={styles.recipeTitle}>{recipe.title}</Text>
         <View style={styles.metaRow}>
           <View style={styles.metaItem}>
@@ -234,6 +252,27 @@ export default function IngredientChecklistScreen({ route, navigation }: Props) 
 
       {/* Bottom CTA */}
       <View style={styles.footer}>
+        <TouchableOpacity
+          style={styles.addToGroceryBtn}
+          onPress={() => {
+            const missing = recipe.ingredients.filter(
+              (ing) => !pantryNames.has(ing.name.toLowerCase())
+            );
+            if (missing.length === 0) {
+              Alert.alert('All set!', 'You have everything in your pantry.');
+              return;
+            }
+            missing.forEach((ing) => {
+              const scaled = scaleAmount(ing.amount, recipe.base_serves, serves);
+              addToGrocery(ing.name, `${scaled} ${ing.unit}`.trim(), ing.category || 'OTHER');
+            });
+            Alert.alert('Added!', `${missing.length} items added to your grocery list.`);
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="cart-outline" size={16} color={Colors.accent} />
+          <Text style={styles.addToGroceryText}>Add missing to grocery list</Text>
+        </TouchableOpacity>
         <View style={styles.footerRow}>
           <TouchableOpacity
             style={styles.youtubeBtn}
@@ -283,6 +322,12 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xxl,
+  },
+  heroImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 16,
+    marginBottom: Spacing.md,
   },
   recipeTitle: {
     fontFamily: Fonts.heading,
@@ -490,6 +535,22 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.lg,
+  },
+  addToGroceryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginBottom: Spacing.sm,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  addToGroceryText: {
+    fontFamily: Fonts.body,
+    fontSize: 13,
+    color: Colors.accent,
   },
   footerRow: {
     flexDirection: 'row',
