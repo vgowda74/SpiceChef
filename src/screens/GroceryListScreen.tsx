@@ -45,7 +45,7 @@ export default function GroceryListScreen() {
   const userStores = useMemo(() => [...customGroups].sort(), [customGroups]);
 
   const grocerySections = useMemo(() => {
-    const grouped: Record<string, { name: string; amount: string; checked: boolean; index: number; isManual?: boolean }[]> = {};
+    const grouped: Record<string, { name: string; amount: string; checked: boolean; index: number; source: string }[]> = {};
     groceryItems.forEach((item, idx) => {
       const g = item.group || 'OTHER';
       if (!grouped[g]) grouped[g] = [];

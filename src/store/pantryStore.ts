@@ -9,12 +9,14 @@ export interface PantryItem {
   addedAt: string;
 }
 
+export type GrocerySource = 'manual' | 'mealplan' | 'recipe';
+
 export interface GroceryItem {
   name: string;
   amount: string;
   group: string;
   checked: boolean;
-  isManual?: boolean;
+  source: GrocerySource;
 }
 
 interface PantryGroceryState {
@@ -30,7 +32,7 @@ interface PantryGroceryState {
   addGroceryItem: (name: string, amount: string, group?: string) => void;
   removeGroceryItem: (index: number) => void;
   toggleGroceryItem: (index: number) => void;
-  addGroceryItems: (items: { name: string; amount: string; group: string }[]) => void;
+  addGroceryItems: (items: { name: string; amount: string; group: string }[], source?: GrocerySource) => void;
   clearCheckedGrocery: () => void;
 
   // Cross-transfer
@@ -77,11 +79,10 @@ export const usePantryStore = create<PantryGroceryState>()(persist((set, get) =>
 
   // --- Grocery ---
   addGroceryItem: (name, amount, group = 'OTHER') => {
-    const shoppable = amount;
     set((state) => ({
       groceryItems: [
         ...state.groceryItems,
-        { name, amount: shoppable, group, checked: false, isManual: true },
+        { name, amount, group, checked: false, source: 'manual' as GrocerySource },
       ],
       // Remove from pantry — if adding to grocery, user ran out
       pantryItems: state.pantryItems.filter(
@@ -102,19 +103,24 @@ export const usePantryStore = create<PantryGroceryState>()(persist((set, get) =>
       ),
     })),
 
-  addGroceryItems: (items) =>
+  addGroceryItems: (items, source: GrocerySource = 'mealplan') =>
     set((state) => {
-      const existingNames = new Set(state.groceryItems.map((i) => i.name.toLowerCase()));
+      // If from meal plan, clear old mealplan/recipe items first (keep manual)
+      const baseGrocery = source === 'mealplan'
+        ? state.groceryItems.filter((i) => i.source === 'manual')
+        : state.groceryItems;
+
+      const existingNames = new Set(baseGrocery.map((i) => i.name.toLowerCase()));
       const newItems = items
         .filter((i) => !existingNames.has(i.name.toLowerCase()))
-        .map((i) => ({ ...i, amount: i.amount, checked: false }));
+        .map((i) => ({ ...i, checked: false, source }));
       // Remove added items from pantry
       const addedNames = new Set(newItems.map((i) => i.name.toLowerCase()));
       const updatedPantry = state.pantryItems.filter(
         (p) => !addedNames.has(p.name.toLowerCase())
       );
       return {
-        groceryItems: [...state.groceryItems, ...newItems],
+        groceryItems: [...baseGrocery, ...newItems],
         pantryItems: updatedPantry,
       };
     }),
@@ -142,7 +148,7 @@ export const usePantryStore = create<PantryGroceryState>()(persist((set, get) =>
       pantryItems: state.pantryItems.filter((_, i) => i !== index),
       groceryItems: [
         ...state.groceryItems,
-        { name: item.name, amount: item.amount, group: item.group, checked: false },
+        { name: item.name, amount: item.amount, group: item.group, checked: false, source: 'manual' as GrocerySource },
       ],
     }));
   },
@@ -175,4 +181,16 @@ export const usePantryStore = create<PantryGroceryState>()(persist((set, get) =>
 }), {
   name: 'spicechef-pantry',
   storage: createJSONStorage(() => AsyncStorage),
+  merge: (persisted: any, current) => {
+    if (!persisted) return current;
+    return {
+      ...current,
+      ...persisted,
+      // Ensure old cached items get source field
+      groceryItems: (persisted.groceryItems || []).map((i: any) => ({
+        ...i,
+        source: i.source || (i.isManual ? 'manual' : 'manual'),
+      })),
+    };
+  },
 }));
