@@ -97,8 +97,8 @@ export const useMealPlanStore = create<MealPlanState>()(persist((set, get) => ({
   lifetimeMealPlans: 0,
 
   addMealPlan: (plan) =>
-    set((state) => ({
-      mealPlans: [plan, ...state.mealPlans],
+    set(() => ({
+      mealPlans: [plan], // Replace old plans — only one active at a time
       activePlanId: plan.id,
     })),
 
