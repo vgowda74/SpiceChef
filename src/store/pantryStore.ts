@@ -2,52 +2,6 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-/**
- * Round up recipe amounts to practical minimum shoppable quantities.
- * e.g. "0.5 tsp" → "1 tsp", "150 g" → "200 g", "1.3 kg" → "1.5 kg"
- */
-function toShoppableAmount(amount: string): string {
-  if (!amount) return amount;
-
-  // Extract number and unit
-  const match = amount.match(/^([\d.]+)\s*(.*)$/);
-  if (!match) return amount;
-
-  const num = parseFloat(match[1]);
-  const unit = match[2].trim().toLowerCase();
-  if (isNaN(num)) return amount;
-
-  let rounded = num;
-
-  // Round up based on unit type
-  if (['g', 'gm', 'gram', 'grams'].includes(unit)) {
-    // Round up to nearest 50g for small, 100g for larger
-    if (num <= 100) rounded = Math.ceil(num / 50) * 50;
-    else rounded = Math.ceil(num / 100) * 100;
-  } else if (['kg', 'kilogram', 'kilograms'].includes(unit)) {
-    rounded = Math.ceil(num * 2) / 2; // Round to nearest 0.5 kg
-  } else if (['ml', 'milliliter', 'milliliters'].includes(unit)) {
-    if (num <= 100) rounded = Math.ceil(num / 50) * 50;
-    else rounded = Math.ceil(num / 100) * 100;
-  } else if (['l', 'liter', 'liters', 'litre', 'litres'].includes(unit)) {
-    rounded = Math.ceil(num * 2) / 2; // Round to nearest 0.5 L
-  } else if (['tsp', 'teaspoon'].includes(unit)) {
-    rounded = Math.ceil(num); // Round up to whole tsp
-  } else if (['tbsp', 'tablespoon'].includes(unit)) {
-    rounded = Math.ceil(num); // Round up to whole tbsp
-  } else if (['cup', 'cups'].includes(unit)) {
-    rounded = Math.ceil(num * 4) / 4; // Round to nearest ¼ cup
-  } else if (['whole', 'piece', 'pieces', ''].includes(unit)) {
-    rounded = Math.ceil(num); // Always round up whole items
-  } else {
-    rounded = Math.ceil(num); // Default: round up
-  }
-
-  // Format nicely
-  const formatted = rounded === Math.floor(rounded) ? rounded.toString() : rounded.toFixed(1);
-  return unit ? `${formatted} ${match[2].trim()}` : formatted;
-}
-
 export interface PantryItem {
   name: string;
   amount: string;
@@ -123,7 +77,7 @@ export const usePantryStore = create<PantryGroceryState>()(persist((set, get) =>
 
   // --- Grocery ---
   addGroceryItem: (name, amount, group = 'OTHER') => {
-    const shoppable = toShoppableAmount(amount);
+    const shoppable = amount;
     set((state) => ({
       groceryItems: [
         ...state.groceryItems,
@@ -153,7 +107,7 @@ export const usePantryStore = create<PantryGroceryState>()(persist((set, get) =>
       const existingNames = new Set(state.groceryItems.map((i) => i.name.toLowerCase()));
       const newItems = items
         .filter((i) => !existingNames.has(i.name.toLowerCase()))
-        .map((i) => ({ ...i, amount: toShoppableAmount(i.amount), checked: false }));
+        .map((i) => ({ ...i, amount: i.amount, checked: false }));
       // Remove added items from pantry
       const addedNames = new Set(newItems.map((i) => i.name.toLowerCase()));
       const updatedPantry = state.pantryItems.filter(
