@@ -511,6 +511,7 @@ export const useRecipeStore = create<RecipeState>()(persist((set, get) => ({
         accent_color: '#3A4A2A',
         recipe_count: 0,
         created_at: new Date().toISOString().split('T')[0],
+        image_url: 'https://quejhlzniodtcxfoslpi.supabase.co/storage/v1/object/public/recipe-images/images/cookbooks/cb_my_recipes.jpg',
       };
       const updatedCookbooks = exists
         ? state.cookbooks.map((cb) =>

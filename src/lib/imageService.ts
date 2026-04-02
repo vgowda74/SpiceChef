@@ -15,7 +15,7 @@ export async function generateRecipeImage(
 ): Promise<string | null> {
   try {
     const prompt = type === 'cookbook'
-      ? `${title}, beautiful food spread on a dark wooden table, natural soft window lighting, realistic food photography, warm tones, shot with a 50mm lens, portrait orientation, not styled, authentic home cooking`
+      ? `Premium cookbook cover design, elegant food magazine style, '${title}' cookbook, stunning hero dish photograph, dramatic moody lighting, dark elegant background, gold accents, cinematic composition, professional food styling, portrait orientation, 4k quality`
       : `${title} served in a ceramic bowl on a dark wooden table, natural soft lighting, realistic food photo, not styled, authentic home cooking, warm tones, slightly imperfect plating, shot with a 50mm lens`;
 
     // Generate image via fal.ai

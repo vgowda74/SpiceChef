@@ -41,11 +41,8 @@ export default function GroceryListScreen() {
   const [moveItemIndex, setMoveItemIndex] = useState<number | null>(null);
 
   // --- Grocery sections ---
-  const allGroups = useMemo(() => {
-    const categoryGroups = [...new Set(groceryItems.map((i) => i.group || 'OTHER'))];
-    const combined = [...new Set([...categoryGroups, ...customGroups])];
-    return combined.sort();
-  }, [groceryItems, customGroups]);
+  // Stores are only user-created (customGroups) — never auto-categories like DAIRY, PRODUCE
+  const userStores = useMemo(() => [...customGroups].sort(), [customGroups]);
 
   const grocerySections = useMemo(() => {
     const grouped: Record<string, { name: string; amount: string; checked: boolean; index: number; isManual?: boolean }[]> = {};
@@ -293,11 +290,11 @@ export default function GroceryListScreen() {
                 value={newItemAmount}
                 onChangeText={setNewItemAmount}
               />
-              {activeTab === 'Grocery' && allGroups.length > 0 && (
+              {activeTab === 'Grocery' && userStores.length > 0 && (
                 <>
-                  <Text style={styles.modalLabel}>ADD TO GROUP</Text>
+                  <Text style={styles.modalLabel}>ADD TO STORE</Text>
                   <View style={styles.groupChips}>
-                    {allGroups.map((g) => (
+                    {userStores.map((g) => (
                       <TouchableOpacity
                         key={g}
                         style={[styles.groupChip, newItemGroup === g && styles.groupChipSelected]}
@@ -363,7 +360,7 @@ export default function GroceryListScreen() {
             <Text style={styles.modalTitle}>Assign Store</Text>
             <Text style={styles.modalHint}>Pick where to buy this item</Text>
             <View style={styles.groupChips}>
-              {allGroups.map((g) => (
+              {userStores.map((g) => (
                 <TouchableOpacity
                   key={g}
                   style={[styles.groupChip, styles.groupChipSelectable]}
