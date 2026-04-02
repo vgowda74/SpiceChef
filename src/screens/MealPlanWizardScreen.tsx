@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -55,10 +55,8 @@ export default function MealPlanWizardScreen() {
   const [ingredientInput, setIngredientInput] = useState('');
   const [generating, setGenerating] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState('');
-  const [initialized, setInitialized] = useState(false);
-
-  // Pre-fill dietary restrictions and pantry items on first render
-  if (!initialized) {
+  // Pre-fill dietary restrictions and pantry items on mount
+  useEffect(() => {
     if (savedDietary.length > 0 && wizard.dietaryRestrictions.length === 0) {
       setWizardField('dietaryRestrictions', savedDietary);
     }
@@ -66,8 +64,7 @@ export default function MealPlanWizardScreen() {
     if (pantryNames.length > 0 && wizard.availableIngredients.length === 0) {
       setWizardField('availableIngredients', pantryNames);
     }
-    setInitialized(true);
-  }
+  }, []);
 
   const goNext = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS));
   const goBack = () => {
