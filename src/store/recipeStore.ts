@@ -656,10 +656,15 @@ export const useRecipeStore = create<RecipeState>()(persist((set, get) => ({
     const bundledCbMap = new Map(MOCK_COOKBOOKS.map((cb) => [cb.id, cb]));
     const bundledRecipeMap = new Map(MOCK_RECIPES.map((r) => [r.id, r]));
 
+    const MY_RECIPES_IMAGE = 'https://quejhlzniodtcxfoslpi.supabase.co/storage/v1/object/public/recipe-images/images/cookbooks/cb_my_recipes.jpg';
+
     // Update persisted bundled cookbooks with latest data (e.g. new image_url)
-    const updatedCookbooks = (persisted.cookbooks || []).map((cb: Cookbook) =>
-      bundledCbMap.has(cb.id) ? { ...cb, ...bundledCbMap.get(cb.id) } : cb
-    );
+    // Also ensure My Recipes cookbook gets its cover image
+    const updatedCookbooks = (persisted.cookbooks || []).map((cb: Cookbook) => {
+      if (bundledCbMap.has(cb.id)) return { ...cb, ...bundledCbMap.get(cb.id) };
+      if (cb.id === 'cb_my_recipes' && !cb.image_url) return { ...cb, image_url: MY_RECIPES_IMAGE };
+      return cb;
+    });
     // Add any new bundled cookbooks not yet persisted
     const persistedCbIds = new Set(updatedCookbooks.map((cb: Cookbook) => cb.id));
     const missingBundled = MOCK_COOKBOOKS.filter((cb) => !persistedCbIds.has(cb.id));

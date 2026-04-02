@@ -36,6 +36,7 @@ import GroceryListScreen from './src/screens/GroceryListScreen';
 import { setupIAP, teardownIAP } from './src/lib/iapService';
 import { fetchFeaturedCookbooks } from './src/lib/featuredService';
 import { useRecipeStore } from './src/store/recipeStore';
+import { generateRecipeImage } from './src/lib/imageService';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -126,6 +127,18 @@ export default function App() {
         useRecipeStore.getState().mergeFeaturedCookbooks(cookbooks, recipes);
       }
     });
+    // Generate images for user-created recipes missing them (in background)
+    setTimeout(() => {
+      const store = useRecipeStore.getState();
+      const userRecipes = store.recipes.filter(
+        (r) => !r.image_url && (r.id.startsWith('my_') || r.cookbook_id === 'cb_my_recipes')
+      );
+      userRecipes.forEach((r) => {
+        generateRecipeImage(r.id, r.title).then((url) => {
+          if (url) useRecipeStore.getState().setRecipeImage(r.id, url);
+        });
+      });
+    }, 3000); // Delay to not block startup
     return () => { teardownIAP(); };
   }, []);
 
