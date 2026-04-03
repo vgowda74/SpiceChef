@@ -114,7 +114,7 @@ export default function AddRecipeScreen() {
       );
 
       const data = await response.json();
-      console.log(`[SpiceChef] Response: ${response.status}`, data?.identified ?? data?.error);
+      console.log(`[SpiceChef] Response: ${response.status}`, data?.identified ?? data?.error, data?.debug ?? '');
 
       if (!response.ok) {
         throw new Error(data?.error || 'Recipe generation failed. Please try again.');
