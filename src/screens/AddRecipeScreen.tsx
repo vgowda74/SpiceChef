@@ -61,14 +61,22 @@ export default function AddRecipeScreen() {
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      quality: 0.5,
+      quality: 0.3,
       base64: true,
-      allowsEditing: false,
+      allowsEditing: true,
       exif: false,
+      // Resize to max 800px — keeps base64 small enough for edge function
+      ...(Platform.OS === 'ios' ? {} : {}),
     });
     if (!result.canceled && result.assets[0]) {
+      const b64 = result.assets[0].base64;
+      if (b64 && b64.length > 4 * 1024 * 1024) {
+        Alert.alert('Image too large', 'Please try a smaller image or screenshot.');
+        return;
+      }
+      console.log(`[SpiceChef] Image picked: ${((b64?.length || 0) / 1024).toFixed(0)} KB base64`);
       setSelectedImage(result.assets[0].uri);
-      setImageBase64(result.assets[0].base64 || null);
+      setImageBase64(b64 || null);
     }
   };
 
@@ -92,6 +100,7 @@ export default function AddRecipeScreen() {
       }
       const base64 = imageBase64;
 
+      console.log(`[SpiceChef] Sending image to API: ${(base64.length / 1024).toFixed(0)} KB`);
       const { data, error } = await supabase.functions.invoke('generate-recipe-from-image', {
         body: {
           image_base64: base64,
@@ -100,6 +109,7 @@ export default function AddRecipeScreen() {
         },
       });
 
+      console.log(`[SpiceChef] Response:`, error ? `ERROR: ${error.message}` : `OK: ${data?.identified}`);
       if (error) throw new Error(error.message);
 
       if (data?.identified === false) {
