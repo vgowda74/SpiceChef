@@ -65,15 +65,9 @@ export default function AddRecipeScreen() {
       base64: true,
       allowsEditing: true,
       exif: false,
-      // Resize to max 800px — keeps base64 small enough for edge function
-      ...(Platform.OS === 'ios' ? {} : {}),
     });
     if (!result.canceled && result.assets[0]) {
       const b64 = result.assets[0].base64;
-      if (b64 && b64.length > 4 * 1024 * 1024) {
-        Alert.alert('Image too large', 'Please try a smaller image or screenshot.');
-        return;
-      }
       console.log(`[SpiceChef] Image picked: ${((b64?.length || 0) / 1024).toFixed(0)} KB base64`);
       setSelectedImage(result.assets[0].uri);
       setImageBase64(b64 || null);
@@ -101,16 +95,30 @@ export default function AddRecipeScreen() {
       const base64 = imageBase64;
 
       console.log(`[SpiceChef] Sending image to API: ${(base64.length / 1024).toFixed(0)} KB`);
-      const { data, error } = await supabase.functions.invoke('generate-recipe-from-image', {
-        body: {
-          image_base64: base64,
-          media_type: 'image/jpeg',
-          description: description.trim() || undefined,
-        },
-      });
 
-      console.log(`[SpiceChef] Response:`, error ? `ERROR: ${error.message}` : `OK: ${data?.identified}`);
-      if (error) throw new Error(error.message);
+      // Call edge function directly via fetch to get full error details
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/generate-recipe-from-image`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            image_base64: base64,
+            media_type: 'image/jpeg',
+            description: description.trim() || undefined,
+          }),
+        },
+      );
+
+      const data = await response.json();
+      console.log(`[SpiceChef] Response: ${response.status}`, data?.identified ?? data?.error);
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Recipe generation failed. Please try again.');
+      }
 
       if (data?.identified === false) {
         setGenerating(false);
