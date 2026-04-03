@@ -110,21 +110,25 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2048,
+        max_tokens: 4096,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content }],
       }),
     });
 
+    const responseBody = await response.text();
+
     if (!response.ok) {
-      const err = await response.text();
+      const userMsg = responseBody.includes('credit balance') || responseBody.includes('usage limits')
+        ? 'Our recipe service is at capacity. Please try again in a few minutes.'
+        : 'Recipe generation failed. Please try again.';
       return new Response(
-        JSON.stringify({ error: `Recipe generation failed. Please try again.` }),
+        JSON.stringify({ error: userMsg, debug: responseBody.substring(0, 300) }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    const data = await response.json();
+    const data = JSON.parse(responseBody);
     const text = data.content?.[0]?.text;
 
     if (!text) {
