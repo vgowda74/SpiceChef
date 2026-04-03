@@ -17,7 +17,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
-import { readAsStringAsync } from 'expo-file-system';
+import { File } from 'expo-file-system/next';
 import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../../App';
 import { Colors, Fonts, Spacing } from '../lib/theme';
@@ -81,9 +81,8 @@ export default function AddRecipeScreen() {
     setGenerating(true);
     try {
       // Read image as base64
-      const base64 = await readAsStringAsync(selectedImage, {
-        encoding: 'base64',
-      });
+      const file = new File(selectedImage);
+      const base64 = await file.base64();
 
       const { data, error } = await supabase.functions.invoke('generate-recipe-from-image', {
         body: {
