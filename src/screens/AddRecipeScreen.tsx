@@ -17,7 +17,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
-import { File } from 'expo-file-system/next';
+// expo-file-system used for base64 encoding
 import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../../App';
 import { Colors, Fonts, Spacing } from '../lib/theme';
@@ -56,18 +56,23 @@ export default function AddRecipeScreen() {
     inputRef.current?.focus();
   };
 
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      quality: 0.8,
-      base64: false,
+      quality: 0.5,
+      base64: true,
+      allowsEditing: false,
+      exif: false,
     });
     if (!result.canceled && result.assets[0]) {
       setSelectedImage(result.assets[0].uri);
+      setImageBase64(result.assets[0].base64 || null);
     }
   };
 
-  const removeImage = () => setSelectedImage(null);
+  const removeImage = () => { setSelectedImage(null); setImageBase64(null); };
 
   const handleGenerateFromImage = async () => {
     if (!selectedImage || !supabase) return;
@@ -80,9 +85,12 @@ export default function AddRecipeScreen() {
 
     setGenerating(true);
     try {
-      // Read image as base64
-      const file = new File(selectedImage);
-      const base64 = await file.base64();
+      if (!imageBase64) {
+        Alert.alert('Image error', 'Could not read the image. Please try picking it again.');
+        setGenerating(false);
+        return;
+      }
+      const base64 = imageBase64;
 
       const { data, error } = await supabase.functions.invoke('generate-recipe-from-image', {
         body: {
